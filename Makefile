@@ -1,4 +1,4 @@
-.PHONY: install test run migrate
+.PHONY: install test run migrate up
 
 install:
 	cd backend && uv sync
@@ -11,3 +11,6 @@ run:
 
 migrate:
 	cd backend && uv run alembic upgrade head
+
+up:
+	docker compose up -d --build postgres api frontend

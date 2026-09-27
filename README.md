@@ -105,45 +105,51 @@ flowchart TB
 | 层次 | 选型 | 当前情况 |
 | --- | --- | --- |
 | API | Python 3.12+ · FastAPI · Pydantic | 已有基础骨架 |
-| 数据访问 | SQLAlchemy 2 async · asyncpg · Alembic | 已接入；当前迁移为空基线 |
+| 数据访问 | SQLAlchemy 2 async · asyncpg · Alembic | 已接入；身份与项目迁移已创建 |
 | 日志与配置 | structlog · pydantic-settings | 已接入 |
-| 前端 | React · TypeScript · Vite | 已选型，待初始化 |
-| 界面与请求 | Tailwind CSS · shadcn/ui · TanStack Query · React Router | 已选型，待实现 |
+| 前端 | React · TypeScript · Vite | 开发服务器可由 Compose 启动 |
+| 界面与请求 | Tailwind CSS · shadcn/ui · TanStack Query · React Router | Tailwind 已接入；页面与其余组件待实现 |
 | 检索 | Elasticsearch | 已有本地服务配置，业务待接入 |
 | 异步执行 | Celery · Redis | 已选型；Redis 已有本地配置，Worker 待实现 |
 | 文件存储 | S3 兼容存储 · MinIO | 已有本地服务配置，业务待接入 |
 | AI 适配 | Model Gateway · 文本侧 LangChain | 已有部分端口，真实适配器待实现 |
-| 工具链 | uv · Ruff · pytest；前端规划 pnpm | 后端已配置 |
+| 工具链 | uv · Ruff · pytest；前端 pnpm | 后端与前端锁文件已配置 |
 
 ## ⚡ 快速开始
 
-以下步骤运行的是**当前后端骨架**，不会启动尚未实现的产品前端或生成服务。
+以下步骤用 Docker 启动当前 API 和前端开发服务器。产品页面和生成服务仍未实现。
 
 ### 1. 准备环境
 
-- Python **3.12+** 与 **uv**。
 - Docker 与 Docker Compose。
-- Git、Make；本地需要空闲的 `5432`、`6379`、`9200`、`9000`、`9001`、`8000` 端口。
+- 只在宿主机运行 API 或测试时，另外需要 Python **3.12+** 与 **uv**。
+- Git、Make；本地需要空闲的 `5432`、`6379`、`9200`、`9000`、`9001`、`8000`、`5173` 端口。
 
 ```bash
 git clone https://github.com/zzephyra/Fluxora.git
 cd Fluxora
 ```
 
-### 2. 配置并启动基础服务
+### 2. 用 Docker 启动前后端
 
-首次启动复制环境模板；如果已有 `.env`，保留已有配置。
+首次启动复制环境模板；如果已有 `.env`，保留已有配置。`.env` 里的 `localhost` 数据库地址只给宿主机上的 `make run` 使用。API 容器会改用 Compose 网络里的 `postgres`。
 
 ```bash
 cp -n .env.example .env
-docker compose up -d
+docker compose up -d --build
 ```
 
-当前 Compose 提供 PostgreSQL、Redis、Elasticsearch 和 MinIO。用 `docker compose ps` 查看服务状态，等待 PostgreSQL healthy 后继续。
+也可以只构建并启动数据库、API 和前端：
 
-### 3. 安装依赖并启动 API
+```bash
+make up
+```
 
-在 Fluxora 根目录执行：
+Compose 提供 PostgreSQL、Redis、Elasticsearch、MinIO、API 和前端开发服务器。开发启动会先执行 Alembic，创建用户、会话、项目成员和项目删除事件表。对话、知识库、记忆、生成和资源表仍未创建。Worker 不在 Compose 里。
+
+### 3. 只在宿主机启动 API
+
+PostgreSQL 仍由 Compose 提供。在 Fluxora 根目录执行：
 
 ```bash
 make install
@@ -151,7 +157,7 @@ make migrate
 make run
 ```
 
-`make migrate` 当前只应用空基线，不会创建尚未实现的业务表。API 默认监听 `http://127.0.0.1:8000`。
+API 默认监听 `http://127.0.0.1:8000`。
 
 ### 4. 检查服务
 
@@ -162,13 +168,14 @@ curl http://127.0.0.1:8000/readyz
 
 | 地址 | 用途 |
 | --- | --- |
+| [前端](http://127.0.0.1:5173) | Vite 开发服务器，`/api` 代理到 API |
 | [API 文档](http://127.0.0.1:8000/docs) | FastAPI Swagger UI，当前仅反映已实现接口 |
 | [存活检查](http://127.0.0.1:8000/healthz) | API 进程是否存活 |
 | [就绪检查](http://127.0.0.1:8000/readyz) | PostgreSQL 是否可用 |
 | [MinIO Console](http://127.0.0.1:9001) | 本地对象存储控制台，凭据见 Compose |
 
 > [!NOTE]
-> `/healthz` 成功不代表数据库或模型服务已就绪。当前 `/readyz` 检查 PG；真实模型账号、密钥与前端界面仍需后续接入。
+> `/healthz` 成功不代表数据库或模型服务已就绪。当前 `/readyz` 检查 PG。前端页面目前只确认开发服务器与 API 是否连通，登录和项目界面仍未实现。
 
 ### 5. 运行现有检查
 
@@ -242,7 +249,8 @@ Fluxora/
 
 - [x] **架构基线**：明确技术栈、模块边界、PG / ES 职责、项目隔离与 ADR。
 - [x] **后端基础骨架**：API 入口、配置、日志、错误处理、健康检查、DB 会话与空迁移。
-- [ ] **身份与项目**：登录、成员授权、项目模型、真实迁移与前端基础布局。
+- [x] **身份与项目后端**：登录、CSRF、OWNER/MEMBER、数据库迁移与项目隔离测试。
+- [ ] **前端基础布局**：项目列表、工作台和其余首期页面。
 - [ ] **生成闭环**：Outbox、Worker、供应商替身、任务状态机、资源落库与生成记录。
 - [ ] **持久对话**：消息、SSE 恢复、模型配置与真实文本供应商。
 - [ ] **知识库与 RAG**：文档解析、分块、索引同步、混合召回、引用与重建。

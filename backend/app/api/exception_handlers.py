@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request
-from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -20,6 +19,15 @@ def error_payload(code: str, message: str, details: dict | None = None) -> dict:
     }
 
 
+def public_validation_errors(exc: RequestValidationError) -> list[dict[str, object]]:
+    """Drop raw input and validator context so passwords and tokens are not echoed."""
+
+    return [
+        {"loc": error.get("loc"), "msg": error.get("msg"), "type": error.get("type")}
+        for error in exc.errors()
+    ]
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApplicationError)
     async def handle_application_error(_request: Request, exc: ApplicationError) -> JSONResponse:
@@ -38,7 +46,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             content=error_payload(
                 "validation_error",
                 "Request validation failed",
-                {"errors": jsonable_encoder(exc.errors())},
+                {"errors": public_validation_errors(exc)},
             ),
         )
 

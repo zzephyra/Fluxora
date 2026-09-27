@@ -8,3 +8,6 @@ htmlcov/
 .env
 *.pyc
 .DS_Store
+node_modules/
+dist/
+.pnpm-store/

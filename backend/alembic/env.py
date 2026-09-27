@@ -2,18 +2,30 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from app.core.config import get_settings
+from app.infrastructure.db.base import Base
+from app.infrastructure.outbox.models import OutboxEvent
+from app.modules.auth.models import User, UserSession
+from app.modules.projects.models import Project, ProjectMember
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from app.core.config import get_settings
-from app.infrastructure.db.base import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+registered_tables = {
+    User.__tablename__,
+    UserSession.__tablename__,
+    Project.__tablename__,
+    ProjectMember.__tablename__,
+    OutboxEvent.__tablename__,
+}
+missing_tables = registered_tables.difference(target_metadata.tables)
+if missing_tables:
+    raise RuntimeError(f"models are missing from metadata: {sorted(missing_tables)}")
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
 

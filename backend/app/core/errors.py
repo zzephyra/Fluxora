@@ -38,6 +38,10 @@ class AuthorizationError(ApplicationError):
     code = "authorization_error"
 
 
+class CsrfError(AuthorizationError):
+    code = "csrf_failed"
+
+
 class NotFoundError(ApplicationError):
     status_code = 404
     code = "not_found"
@@ -46,6 +50,10 @@ class NotFoundError(ApplicationError):
 class ConflictError(ApplicationError):
     status_code = 409
     code = "conflict"
+
+
+class VersionConflictError(ConflictError):
+    code = "version_conflict"
 
 
 class RateLimitError(ApplicationError):

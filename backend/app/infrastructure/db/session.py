@@ -54,6 +54,19 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
             raise
 
 
+async def get_uow(request: Request) -> AsyncIterator[UnitOfWork]:
+    """Yield the request transaction. The outer service commits; this function does not."""
+
+    session_factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+    async with session_factory() as session:
+        uow = UnitOfWork(session)
+        try:
+            yield uow
+        except Exception:
+            await uow.rollback()
+            raise
+
+
 async def postgres_is_ready(session_factory: async_sessionmaker[AsyncSession]) -> bool:
     try:
         async with session_factory() as session:

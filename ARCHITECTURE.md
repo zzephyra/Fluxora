@@ -601,7 +601,7 @@ CI MUST 运行格式、lint、类型检查、必要测试和前端 build，并�
 
 ## 27. Deployment
 
-目标开发环境用 Docker Compose 提供 PostgreSQL、Elasticsearch、Redis、MinIO、API 和 Worker。当前 Compose 仅包含前四项，已有启动命令与未实现部分见运行规范。
+目标开发环境用 Docker Compose 提供 PostgreSQL、Elasticsearch、Redis、MinIO、API 和 Worker。当前 Compose 包含前四项、API 和前端开发服务器；Worker 仍未实现。API 镜像默认只启动进程，开发 Compose 才在启动前执行 Alembic。已有启动命令与未实现部分见运行规范。
 
 API、Worker、Outbox Dispatcher SHOULD 可以独立启动，并共用同一镜像中的不同命令。
 

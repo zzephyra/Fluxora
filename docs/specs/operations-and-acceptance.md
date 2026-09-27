@@ -2,9 +2,9 @@
 
 ## 1. 状态与适用范围
 
-本文规定目标实现，不代表当前已支持。当前仓库只有 FastAPI 健康检查、配置/异常/日志、数据库会话、空迁移及部分 Port/Parser 注册骨架；没有完整身份、业务模块、Worker、Outbox、前端或生产部署。
+本文规定目标实现，不代表当前已支持。当前仓库已有 FastAPI 健康检查、配置/异常/日志、数据库会话、身份会话与项目成员闭环，以及可由 Compose 启动的前端开发服务器。没有 Worker、Outbox Dispatcher 或生产部署。对话、知识库、记忆、生成、资源业务和产品页面尚未实现。
 
-本轮仅修订文档。代码与目标规范不一致的部分列在第 6 节，实施对应阶段时修复，不能把文档新增当作功能交付。
+本轮代码已经实现身份与项目闭环。其余代码与目标规范不一致的部分列在第 6 节，不能把测试通过当作未列出的业务已经交付。
 
 ## 2. 集中配置默认值
 
@@ -34,7 +34,7 @@
 
 ## 3. 部署与启动
 
-本地已有 docker-compose.yml 仅启动 PG、ES、Redis、MinIO；API 当前通过 make run 启动，make migrate 执行迁移，make test 执行已有测试。不要声称 Compose 已包含 API/Worker 或生产持久卷。
+本地 docker-compose.yml 启动 PostgreSQL、Redis、Elasticsearch、MinIO、API 和前端开发服务器。开发 Compose 在启动 API 前执行 Alembic upgrade；镜像默认命令只启动进程，生产仍按发布顺序单独迁移。`make test` 执行已有测试，`make run` 仍可在宿主机启动 API。Compose 不包含 Worker 或 Dispatcher，也没有生产持久卷。
 
 业务完成后提供独立 API、Worker、Dispatcher、恢复调度器命令，均使用相同代码版本。队列按 video/ingestion/indexing/chat 分离；批量重建限流，不能饿死对话。Redis 不配置 Celery result backend。
 
@@ -79,15 +79,15 @@ CI 分阶段启用 Ruff/pytest、后端类型检查（固定使用 mypy，接入
 
 ## 6. 当前代码与目标差距
 
-- backend/alembic/versions/0001_baseline.py 是空迁移，本规范的业务表尚未创建。
+- `0001_baseline` 仍是空迁移。`0002_auth_and_projects` 创建 users、sessions、projects、project_members 和 outbox_events。其余业务表和 event_deliveries 尚未创建。
 - VideoProvider 目前只有状态查询接口，缺少 submit/cancel、能力与输出观察；真实接入前补齐，不可在 Service 直接调用 SDK 绕开。
 - ParsedDocument 目前只有 text，必须扩展 blocks/locator 才能提供可核验引用。
 - 当前边界测试扫描整个非 DB infrastructure，会误禁合法 LangChain 适配器；实施 AI 接入时修正测试范围。
-- 当前 UnitOfWork 尚未落实跨模块调用与 Worker 工厂的完整生命周期；必须按数据规范补齐。
-- 当前异常校验输出可能包含输入原值；身份/资料接口开放前必须过滤敏感值，不能直接将完整验证异常回显。
-- 前端、Worker、Outbox、认证、RAG、记忆、业务 CI 和生产部署均待实施。
+- 身份和项目的外层 Service 已拥有并提交同一个 UoW，项目模块通过 auth Service 读取用户。Worker 工厂的完整生命周期仍未落实。
+- 校验错误不再回显原始输入。登录限流尚未接入；Redis 不可用时登录应返回 503，这项仍待实现。
+- 前端开发服务器可由 Compose 启动，并代理 `/api`。登录、项目和工作台等产品页面尚未实现。Worker、Outbox Dispatcher、RAG、记忆、业务 CI 和生产部署均待实施。项目删除已写入 `project.deleted.v1`，尚无消费者。
 
-这些是下一阶段的实施门槛，不是本次文档修改已修复的代码问题。
+未列入上面已实现范围的项目仍待后续阶段完成。
 
 ## 7. 外部决策与生产门槛
 

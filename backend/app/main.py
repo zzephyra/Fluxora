@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.exception_handlers import register_exception_handlers
 from app.api.health import router as health_router
@@ -8,6 +9,8 @@ from app.api.middleware import RequestContextMiddleware
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
 from app.infrastructure.db.session import create_db_engine, create_session_factory
+from app.modules.auth.router import router as auth_router
+from app.modules.projects.router import router as projects_router
 
 logger = get_logger(__name__)
 
@@ -31,8 +34,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Fluxora", lifespan=lifespan)
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved_settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-CSRF-Token", "X-Request-ID", "X-Trace-ID"],
+    )
     register_exception_handlers(app)
     app.include_router(health_router)
+    app.include_router(auth_router)
+    app.include_router(projects_router)
     return app
 
 
