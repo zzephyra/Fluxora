@@ -4,9 +4,9 @@
 
 1. `ARCHITECTURE.md`
 2. 与本次变更相关的 `docs/adr/`
-3. `architect.md` 中对应的产品约束
+3. `docs/specs/README.md` 与受影响主题规范
 
-`ARCHITECTURE.md` 是工程约束。`architect.md` 是产品范围。二者冲突时停止，说明冲突，不得自行选择一边继续改代码。
+`ARCHITECTURE.md` 同时约束产品范围与工程实现。与本文冲突时停止，说明冲突，不得自行选择一边继续改代码。
 
 当前基线已确定：
 
@@ -67,7 +67,7 @@
 6. 确认后先改 ADR 和 `ARCHITECTURE.md`。
 7. 然后再改代码。
 
-禁止先改架构文档并继续开发。
+禁止擅自先改架构文档再以此为理由继续开发。用户已明确授权架构/文档修改时，记录 ADR 并在授权范围内完成，不重复要求同一确认；只授权文档时不擅自实现业务代码。
 
 以下变化必须有 ADR：数据库职责、Elasticsearch、同步机制、队列、Worker、缓存、对象存储、认证、计费、Model Gateway、LangChain 边界、任务状态机、模块边界、主要依赖、服务拆分。
 
@@ -86,3 +86,11 @@
 9. 是否需要新的 ADR。
 
 完成说明必须列出改动、已执行的验证和未解决的限制。
+
+## 契约落实
+
+- 完整状态迁移以 docs/specs/tasks-and-events.md 为准，不从简略箭头图推测。
+- 外层 Service 拥有 UoW；跨模块内部调用不得自行提交。
+- 幂等唯一键必须包含 idempotency_key 本身。
+- 文档是目标规范，当前未实现项见 docs/specs/operations-and-acceptance.md；不能以测试通过声称未实现业务已完成。
+- 修改文档后检查相对链接、术语、示例与 ADR 一致性，避免重复维护第二套规则。

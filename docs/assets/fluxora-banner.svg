@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="288" viewBox="0 0 1280 480" role="img" aria-labelledby="title desc">
+  <title id="title">Fluxora — From context to cinema</title>
+  <desc id="desc">Dark cinematic Fluxora banner with violet and cyan light trails and an abstract film frame. Project-scoped AI video creation.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#090d1c"/><stop offset="1" stop-color="#17132e"/></linearGradient>
+    <linearGradient id="line"><stop stop-color="#8b5cf6"/><stop offset=".55" stop-color="#c4b5fd"/><stop offset="1" stop-color="#67e8f9"/></linearGradient>
+    <linearGradient id="frame" x2="1" y2="1"><stop stop-color="#292047"/><stop offset="1" stop-color="#101f30"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#7c3aed" stop-opacity=".32"/><stop offset="1" stop-color="#7c3aed" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#c4b5fd" stroke-opacity=".035"/></pattern>
+  </defs>
+  <rect width="1280" height="480" rx="24" fill="url(#bg)"/>
+  <rect width="1280" height="480" rx="24" fill="url(#grid)"/>
+  <ellipse cx="970" cy="200" rx="430" ry="300" fill="url(#glow)"/>
+  <path d="M610 405C760 415 745 60 1050 115S1220 90 1320 25" fill="none" stroke="url(#line)" stroke-opacity=".13" stroke-width="42"/>
+  <path d="M610 405C760 415 745 60 1050 115S1220 90 1320 25" fill="none" stroke="url(#line)" stroke-opacity=".7" stroke-width="1.5"/>
+  <path d="M700 440C840 310 900 415 1040 350S1240 250 1310 310" fill="none" stroke="#67e8f9" stroke-opacity=".25"/>
+  <g font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <rect x="64" y="57" width="244" height="30" rx="15" fill="#a78bfa" fill-opacity=".1" stroke="#a78bfa" stroke-opacity=".3"/>
+    <circle cx="82" cy="72" r="3" fill="#a78bfa"/>
+    <text x="95" y="77" fill="#c4b5fd" font-size="11" letter-spacing="2">AI VIDEO WORKSPACE</text>
+    <text x="60" y="199" fill="#f8fafc" font-size="94" font-weight="750" letter-spacing="-5">Fluxora<tspan fill="#a78bfa">.</tspan></text>
+    <text x="65" y="247" fill="#e2e8f0" font-size="27" letter-spacing="-.5">From context to cinema.</text>
+    <text x="65" y="287" fill="#94a3b8" font-size="16">Your ideas. Your knowledge. Your project's memory.</text>
+    <g fill="#b8c3d5" font-size="11" letter-spacing="1.8">
+      <text x="65" y="370">CONVERSE</text><text x="190" y="370">RETRIEVE</text><text x="310" y="370">REMEMBER</text><text x="448" y="370">CREATE</text>
+    </g>
+    <g fill="#8b5cf6"><circle cx="172" cy="366" r="2"/><circle cx="292" cy="366" r="2"/><circle cx="430" cy="366" r="2"/></g>
+    <path d="M65 408H585" stroke="#fff" stroke-opacity=".1"/>
+    <text x="65" y="437" fill="#64748b" font-size="11" letter-spacing="1.5">PROJECT-SCOPED · CONTEXT-AWARE · BUILT TO RECOVER</text>
+  </g>
+  <g transform="translate(810 125) rotate(-7 160 110)">
+    <rect x="20" y="24" width="330" height="224" rx="20" fill="#070a15" fill-opacity=".65" stroke="#a78bfa" stroke-opacity=".12"/>
+    <rect width="330" height="224" rx="20" fill="url(#frame)" stroke="url(#line)" stroke-opacity=".7"/>
+    <path d="M0 38H330M0 186H330" stroke="#a78bfa" stroke-opacity=".2"/>
+    <g fill="#a78bfa" fill-opacity=".22">
+      <rect x="24" y="14" width="23" height="10" rx="3"/><rect x="67" y="14" width="23" height="10" rx="3"/><rect x="110" y="14" width="23" height="10" rx="3"/><rect x="153" y="14" width="23" height="10" rx="3"/><rect x="196" y="14" width="23" height="10" rx="3"/><rect x="239" y="14" width="23" height="10" rx="3"/><rect x="282" y="14" width="23" height="10" rx="3"/>
+      <rect x="24" y="200" width="23" height="10" rx="3"/><rect x="67" y="200" width="23" height="10" rx="3"/><rect x="110" y="200" width="23" height="10" rx="3"/><rect x="153" y="200" width="23" height="10" rx="3"/><rect x="196" y="200" width="23" height="10" rx="3"/><rect x="239" y="200" width="23" height="10" rx="3"/><rect x="282" y="200" width="23" height="10" rx="3"/>
+    </g>
+    <circle cx="165" cy="112" r="48" fill="#c4b5fd" fill-opacity=".05" stroke="url(#line)" stroke-opacity=".3"/>
+    <path d="M153 90L188 112L153 134Z" fill="url(#line)"/>
+    <path d="M22 157L72 115L113 146M213 151L268 87L310 124" fill="none" stroke="url(#line)" stroke-opacity=".2"/>
+  </g>
+  <circle cx="1150" cy="102" r="4" fill="#67e8f9"/><circle cx="766" cy="325" r="3" fill="#a78bfa"/>
+  <rect x=".5" y=".5" width="1279" height="479" rx="24" fill="none" stroke="#a78bfa" stroke-opacity=".15"/>
+</svg>

@@ -24,7 +24,7 @@ Outbox 至少包含 `event_id`、`event_type`、`aggregate_id`、`project_id`、
 
 投递至少一次。消费者按聚合版本幂等。旧事件不得覆盖新文档。删除使用带版本的墓碑。暂时失败指数退避；永久失败记入 PostgreSQL，允许人工重放。
 
-队列丢失时扫描 PostgreSQL 中未完成的 Outbox 重新投递。重建时从 PostgreSQL 分批写入新版本索引，回放水位之后的增量，校验后切换 alias。
+队列丢失时按 event_deliveries 的消费者完成状态恢复，broker 接受不等于消费完成。重建注册双目标投递、构建一致性快照、追平后在短写入屏障内切换 alias；不以自增 ID 最大值代替提交水位。协议见 [任务与同步](../specs/tasks-and-events.md) 与 ADR-014。
 
 普通业务 Service 禁止在保存 PostgreSQL 之后直接调用 Elasticsearch index。
 

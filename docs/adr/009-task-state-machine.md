@@ -16,21 +16,11 @@ Accepted
 queued → running → succeeded | failed | canceled
 ```
 
-视频生成额外使用：
+视频生成额外使用 submitting 和 cancel_requested。完整允许转移以 [任务与同步](../specs/tasks-and-events.md) 为准；ADR-014 补全提交失败、提交期间取消、取消期间失败和未决结果处理。不新增公开状态，未决结果通过 reconciliation_required 标记。
 
-```text
-queued → submitting → running → succeeded | failed
-queued → canceled
-running → cancel_requested → canceled | succeeded
-```
+状态只通过 Application Service 按版本条件更新。终态不可回退；用户重试创建新任务，内部重试记 attempt。每个会话最多一个 queued/running chat_run，文档入库和索引分阶段记录。
 
-`submitting` 表示正在向供应商提交。`cancel_requested` 表示已请求取消但供应商尚未确认。竞态中已完成的任务可以从 `cancel_requested` 进入 `succeeded`。终态不得回到非终态。
-
-状态迁移只通过对应 Application Service，并用版本条件更新。用户再次提交失败任务时创建新任务。一次提交内部的瞬时重试写入 `generation_attempts`，不把原任务从 `failed` 改回 `running`。
-
-对话运行使用同一组基础状态，不使用 `submitting`。每个会话同时最多一个活跃 run。文档解析成功和索引成功分开记录，不合并成一个状态。
-
-幂等键范围为 `project_id + actor_id + operation`，并校验请求哈希。相同键、不同请求返回 409。
+幂等唯一约束为 (project_id, actor_id, operation, idempotency_key)，请求哈希不同返回 409；仅前三项相同不应阻止新的请求。事务规则见 [数据与事务](../specs/data-and-transactions.md)。
 
 ## Alternatives
 

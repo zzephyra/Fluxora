@@ -40,3 +40,5 @@ OWNER 管理项目和成员。MEMBER 可以在项目内编辑内容并提交生�
 ## Migration
 
 成员表尚未创建。建表时使用单一角色字段。
+
+具体操作矩阵、唯一 OWNER 和成员管理边界见 [API 与权限](../specs/api-and-access.md)。

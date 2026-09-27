@@ -31,9 +31,9 @@ Elasticsearch 是派生搜索索引，不是事实源。PostgreSQL 与 Elasticse
 
 ## Trade-offs
 
-Elasticsearch 同时承担文本和向量会让 mapping 变更更贵，所以索引版本和 alias 从第一天启用。pgvector 少一个组件，但会把混合检索和聚合做进事务库，和“搜索可独立重建”的目标冲突。第二套向量库会制造无法从 PostgreSQL 解释的派生副本。
+Elasticsearch 同时承担文本和向量会让 mapping 变更更贵，所以索引版本和 alias 从第一天启用。pgvector 也可以保存可重建的派生向量，并不违背事实源原则；本项目选择 Elasticsearch 是为了统一全文、向量和聚合检索，避免维护第二套检索路径。增加第二套向量库并非必然破坏可恢复性，但会增加同步与运维复杂度，首期不采用。
 
-PostgreSQL 全文检索对项目级 RAG 的模糊搜索和向量召回不够用。
+这是一项项目范围内的技术取舍，不表示其他数据库不能实现项目级 RAG。
 
 ## Consequences
 

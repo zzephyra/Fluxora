@@ -41,3 +41,5 @@ Upload → Parse → Normalize → Chunk → Embedding → Index → Retrieval
 ## Migration
 
 解析器实现尚未开始，无迁移。
+
+解析定位、限制和分块规则见 [RAG 与记忆](../specs/rag-and-memory.md)。当前已有注册端口但尚无真实格式解析器；接入时必须扩展定位输出。

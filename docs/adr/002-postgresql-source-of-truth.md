@@ -37,3 +37,5 @@ SQLAlchemy 映射代码比 SQLModel 多，但 DTO、领域规则和 ORM 不会�
 ## Migration
 
 项目尚未实现，无迁移。
+
+执行级表结构与跨模块 UoW 规则见 [数据与事务](../specs/data-and-transactions.md)。

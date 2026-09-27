@@ -17,3 +17,4 @@
 | [011](011-video-status-sync.md) | 视频状态同步 | Accepted |
 | [012](012-document-parser.md) | 知识库文档解析 | Accepted |
 | [013](013-project-membership-roles.md) | 项目成员角色 | Accepted |
+| [014](014-executable-contracts.md) | 可执行契约与恢复边界 | Accepted |

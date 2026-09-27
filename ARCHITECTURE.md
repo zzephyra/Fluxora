@@ -1,6 +1,8 @@
 # Fluxora Architecture
 
-状态：已确认。本文是工程架构约束。产品范围见 `architect.md`。决策记录见 `docs/adr/`。
+状态：架构基线；实现细则修订于 2026-09-27。本文约束产品范围与工程实现，不表示功能已实现。决策记录见 `docs/adr/`。
+
+唯一入口是本文，不恢复已移除的 architect.md。执行级契约见 [实现规范索引](docs/specs/README.md)，当前代码差距见 [运行与验收](docs/specs/operations-and-acceptance.md)。本轮用户已授权完善文档，细化与修订记录于 [ADR-014](docs/adr/014-executable-contracts.md)。
 
 本文中的 MUST、SHOULD、MUST NOT 是强制程度。改变这些约束必须先写 ADR，得到确认后再改本文和代码。
 
@@ -8,11 +10,15 @@
 
 Fluxora 是按项目组织的视频生成平台。用户在项目内上传资料、对话检索、确认记忆、提交视频生成，并查看任务和成片。
 
+典型流程：创建项目 → 上传资料 → 对话并检索项目知识 → 编辑生成提示词和参数 → 用户明确提交生成 → 查看任务状态 → 预览与下载视频。
+
 首期包括：登录、项目与成员、项目内对话、知识库与 RAG、项目记忆、视频生成、资源和生成记录。
 
-首期不包括：时间线剪辑、多智能体自治、模型训练、支付和 Credits 账本。
+首期不包括：时间线剪辑、多智能体自治、模型训练、支付和 Credits 账本。订单、计费及 Credits 如后续引入，仍必须遵守本文数据约束。
 
 项目是数据、检索和记忆的隔离边界。默认不支持跨项目共享，也不支持全局用户记忆。
+
+LLM 可以提出生成方案，但不能绕过用户提交、权限、参数校验或额度检查直接创建付费生成。
 
 ## 2. Architecture Principles
 
@@ -46,7 +52,7 @@ Fluxora 是按项目组织的视频生成平台。用户在项目内上传资料
 
 首期不引入 Zustand、React Hook Form、Zod、LangGraph、第二套向量数据库或 Celery result backend。出现具体需求时再评估。
 
-版本在初始化时锁定到 `uv.lock` 和 `pnpm-lock.yaml`。
+版本在初始化时锁定到 `uv.lock` 和 `pnpm-lock.yaml`。不得增加第二套 ORM、任务队列、UI 系统或向量数据库。新增运行时依赖需说明现有工具无法满足的具体需求。
 
 ## 4. Architecture Diagram
 
@@ -80,13 +86,40 @@ Router / Worker
       → Infrastructure
 ```
 
+```text
+Fluxora/
+├── ARCHITECTURE.md
+├── frontend/
+│   ├── src/
+│   │   ├── app/                 # 路由、Provider、应用入口
+│   │   ├── features/            # auth/projects/chat/knowledge/memory/generation/assets
+│   │   ├── components/ui/       # 无业务逻辑的通用 UI
+│   │   ├── api/                 # OpenAPI 生成类型、统一请求客户端
+│   │   └── lib/                 # 少量通用工具
+│   └── package.json
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── core/                # 配置、认证、安全、日志、异常
+│   │   ├── modules/<module>/
+│   │   ├── infrastructure/      # Search、Storage、Model Gateway、Outbox
+│   │   └── workers/             # 执行入口、Outbox 分发、同步及恢复
+│   ├── alembic/               # 与现有迁移目录一致
+│   ├── tests/
+│   └── pyproject.toml
+├── infra/
+└── docs/adr/
+```
+
 Router MUST 只处理 HTTP、校验、认证上下文和响应序列化。
 
 Router MUST NOT 写 SQL、编排 RAG、调用 Elasticsearch、调用 LangChain 或调用供应商 SDK。
 
-Service MUST 划定事务和用例边界。Repository MUST NOT commit，也 MUST NOT 做权限策略。供应商适配器 MUST NOT 决定业务状态。
+最外层 Service MUST 划定事务和用例边界；跨模块调用共享同一 UoW，内部 Service/Repository 只 flush、不 commit。Repository MUST NOT 做权限策略。供应商适配器 MUST NOT 决定业务状态。详见 [数据与事务](docs/specs/data-and-transactions.md)。
 
 Worker MUST 复用 Service，禁止复制一套业务逻辑。
+
+Python 公共接口 MUST 使用类型标注。Pydantic DTO 与 ORM 模型 MUST 分开。异步代码 MUST NOT 调用阻塞网络客户端。网络请求 MUST 统一超时、取消与有限重试。
 
 模块目录在文件变长之前保持扁平：
 
@@ -113,13 +146,16 @@ frontend/src/
   lib/
 ```
 
-- TypeScript MUST 使用 strict。禁止用 `any` 或 `@ts-ignore` 掩盖边界数据。
+- TypeScript MUST 使用 strict。禁止用 `any` 或 `@ts-ignore` 掩盖边界数据。边界数据 MUST 先校验再使用。
+- 页面按业务 feature 组织。组件渲染 UI，hooks 封装交互与请求，api 层集中处理鉴权、错误及取消。
 - 服务端状态 MUST 由 TanStack Query 管理。
 - 客户端交互状态 SHOULD 留在组件 state。首期 MUST NOT 引入全局 store 来复制任务状态。
-- API 类型 MUST 从 OpenAPI 生成。
-- 缓存键 MUST 包含 `project_id`。切换项目时 MUST 取消旧请求和旧事件流。
-- 每个异步界面 MUST 有 loading、empty、error、success。长任务展示服务端真实状态，不伪造进度。
+- API 类型 MUST 从 OpenAPI 生成。禁止另写一套可能漂移的类型。
+- 缓存键 MUST 包含 `project_id`。切换项目时 MUST 取消旧请求和旧事件流，禁止旧响应写入当前项目页面。
+- 颜色、字体、间距 MUST 使用统一 token。MUST 复用 `components/ui`，禁止每个页面重建按钮、弹窗、表格或引入另一套样式方案。
+- 每个异步界面 MUST 有 loading、empty、error、success。长任务展示服务端真实状态、失败原因和允许的操作，不伪造进度。
 - 提交按钮可以防重复点击，最终去重 MUST 由后端幂等保证。服务端确认前不得显示生成成功。
+- 默认桌面优先并支持窄屏。交互元素 MUST 提供可访问名称、键盘操作和明显的焦点状态。
 
 基础页面：项目列表、项目工作台、对话、知识库、记忆、生成记录、资源库、项目设置。
 
@@ -161,14 +197,25 @@ assets      → projects, storage port
 
 PostgreSQL MUST 保存：用户、会话、成员权限、项目、消息、对话运行、文档与分块、记忆、生成任务与尝试、资源元数据、模型配置、Outbox，以及未来的订单、支付、Credits 和 Quota。
 
-所有业务 Create、Update、Delete MUST 首先作用于 PostgreSQL。
+所有业务 Create、Update、Delete MUST 首先作用于 PostgreSQL。普通业务查询直接查询 PostgreSQL。权限、余额、支付、任务状态、用户状态、额度等最终判断 MUST 查询 PostgreSQL。
+
+| 实体 | 核心职责 |
+| --- | --- |
+| users / projects / project_members | 身份、项目与 OWNER / MEMBER。完整 RBAC 以后再扩展 |
+| conversations / messages / chat_runs | 对话、持久消息、流式生成运行状态 |
+| documents / document_versions / chunks | 原文件引用、版本、解析文本、分块、引用坐标 |
+| memories | 项目记忆、来源、版本、有效状态与撤销记录 |
+| generation_tasks / generation_attempts | 视频任务、供应商调用尝试、状态和失败记录 |
+| assets | 视频/图片等资源归属、对象键、媒体属性与来源 |
+| model_configs | 服务端允许的模型、能力、参数限制及密钥引用 |
+| outbox_events / event_deliveries | 可靠业务事件、消费者执行与恢复状态 |
 
 约定：
 
 - 主键 UUID。
 - 时间 UTC，API 使用 ISO 8601。
 - 列名 snake_case。
-- 项目资源 MUST 有非空 `project_id`。
+- 项目资源 MUST 有非空 `project_id`。全局用户与系统级模型配置属于明确例外。
 - 跨资源关系使用外键和复合约束，防止不同项目的会话、文档和资源被关联。
 - 项目资源 Repository MUST 要求 `project_id`，MUST NOT 提供无范围的对外 `get_by_id`。
 - `project_id` MUST 来自已授权路由上下文，不信任请求体中的归属字段。
@@ -181,7 +228,7 @@ Session MUST 由统一 Unit of Work 管理。禁止业务代码到处创建 Sess
 
 ## 10. Elasticsearch Architecture
 
-Elasticsearch MUST NOT 作为主数据库，也 MUST NOT 判断权限、余额、支付、配额、用户状态或任务真值。
+Elasticsearch MUST NOT 作为主数据库，也 MUST NOT 判断权限、余额、支付、配额、用户状态或任务真值。它只承担全文、模糊、组合、建议、高性能检索和聚合，保存可删除、可重建的 Derived Data。ES 中不得存在无法从事实源恢复的唯一数据。
 
 首期索引：
 
@@ -202,7 +249,11 @@ Elasticsearch MUST NOT 作为主数据库，也 MUST NOT 判断权限、余额�
   → 有效内容才进入响应或模型上下文
 ```
 
-ES 中的状态只是候选。PostgreSQL 为 `succeeded` 时，不得用索引里的 `running` 覆盖。失效命中 MUST 丢弃。
+项目内容、RAG 分块和任务搜索的结果 MUST 回查 PostgreSQL，按命中顺序输出有效结果。ES 中的状态只是候选。PostgreSQL 为 `succeeded` 时，不得用索引里的 `running` 覆盖。被删除、失权或过期的命中 MUST 丢弃，不能把 ES 文本直接返回给用户或模型。
+
+搜索聚合是最终一致的统计，MUST NOT 用作计费或权限判断。私有项目的聚合 MUST 限定在 PostgreSQL 授权后的项目范围内。
+
+ES 故障时，普通业务和任务状态查询继续通过 PostgreSQL 工作。知识检索 MUST 明确返回暂不可用，不得静默假装检索成功。
 
 Embedding 模型、维度、分块规则、mapping 和检索参数 MUST 版本化。更换 embedding 模型 MUST 重建对应索引。
 
@@ -217,14 +268,17 @@ MUST 使用 Transactional Outbox：
 Dispatcher  →  Celery  →  Index Worker  →  Elasticsearch
 ```
 
-普通 Service MUST NOT 连续调用 `postgres.save()` 和 `elasticsearch.index()`。MUST NOT 为两边同时成功引入分布式事务。
+普通 Service MUST NOT 连续调用 `postgres.save()` 和 `elasticsearch.index()`。业务写入及重建注册/切换使用共享的 PG 写入屏障协议，详见 [任务与同步](docs/specs/tasks-and-events.md)。MUST NOT 为两边同时成功引入分布式事务。提交成功后，即使 Elasticsearch 不可用，业务操作仍成功。
 
-- 投递至少一次，消费者 MUST 幂等。
+Outbox 至少包含 `event_id`、`event_type`、`aggregate_id`、`project_id`、`aggregate_version`、`schema_version`、`payload`、`created_at`，以及重试和投递状态。
+
+- 投递至少一次，消费者 MUST 幂等。消息成功消费前不得提前确认。
 - 更新 MUST 按聚合版本执行，旧事件不得覆盖新文档。
-- 删除 MUST 使用带版本的墓碑。
-- 暂时错误 SHOULD 指数退避；永久错误进入 PostgreSQL 失败记录。
-- 队列丢失后 MUST 能从 PostgreSQL 重新投递。
-- 重建 MUST 写入新版本索引，校验后切换 alias，并保留短期回滚窗口。
+- 删除 MUST 使用带版本的墓碑和幂等删除，防止乱序消息恢复已删除内容。
+- 暂时错误 SHOULD 指数退避，并带抖动和最大次数；永久错误进入 PostgreSQL 失败记录，可人工重放并报警。
+- 队列丢失后 MUST 能从 PostgreSQL 扫描未完成记录重新投递，不能只依赖 Redis。
+- 重建 MUST 注册新目标、构建 PG 快照、追平增量与删除，校验后切换 alias。写入屏障、快照恢复和回滚窗口严格遵循 [任务与同步](docs/specs/tasks-and-events.md)，不得把自增序列当成提交顺序。
+- SHOULD 定期按更新时间、版本和数量对账，修复漏索引、过期索引及未清理数据。
 
 `ingestion_status` 与 `index_status` MUST 分开。允许解析成功而索引失败。
 
@@ -266,7 +320,7 @@ MUST NOT 把普通业务、权限、Outbox、视频轮询或取消包装成 Chai
 
 首期 MUST NOT 引入 LangGraph，MUST NOT 实现自治多智能体。模型不能静默修改记忆、权限或生成任务。
 
-检索到的文本是不可信资料。
+检索到的文本是不可信资料，不得覆盖系统指令、改变权限或触发工具调用。
 
 详见 [ADR-008](docs/adr/008-model-gateway-langchain-boundary.md)。
 
@@ -302,19 +356,75 @@ HTTP Request → 等待数分钟 → 返回结果
 queued → running → succeeded | failed | canceled
 ```
 
-仅视频任务可以额外使用 `submitting` 和 `cancel_requested`。终态不可回退。`cancel_requested` MUST NOT 被展示为 `canceled`。供应商不支持取消时必须明确返回。
+仅视频任务可以额外使用 `submitting` 和 `cancel_requested`。终态不可回退。`cancel_requested` MUST NOT 被展示为 `canceled`。供应商不支持取消时必须明确返回。状态迁移 MUST 通过 Service，并用版本条件更新。
+
+视频生成链路：
+
+1. 前端提交显式确认后的 prompt、模型配置 ID、结构化参数及参考资源 ID，并发送 `Idempotency-Key`。
+2. Service 校验成员权限、项目资源归属、模型能力和参数；如启用额度，在同一 PostgreSQL 事务中预留额度。
+3. PostgreSQL 保存任务、不可变请求快照与 Outbox 事件，返回 202 和 `task_id`。
+4. Worker 领取任务，调用视频供应商适配器；提交成功后保存 `provider_task_id`，通过 Provider 返回的远程观察结果获取进展。
+5. 将输出保存到受控对象存储，确认对象存在，再在 PostgreSQL 事务中创建 Asset、关联结果并标记成功。
+6. 前端轮询任务 API；成功后获取短期签名链接进行预览或下载。
+
+完整允许转移见 [任务与同步](docs/specs/tasks-and-events.md)，包括 submitting 确定失败、未决提交、提交期间取消及 cancel_requested 失败。未决结果保持原状态并设置 reconciliation_required，不能因超时虚构 failed/canceled。
+
+- 幂等唯一约束是 `(project_id, actor_id, operation, idempotency_key)`，并校验请求哈希；同键不同请求返回 409。
+- 领取任务 MUST 使用租约和心跳。超时后由恢复任务接管；不得让并发 Worker 重复执行同一提交。
+- 外部提交超时、结果不明时，先以供应商幂等键或查询接口核对。无法确认时进入人工核对流程，禁止盲目重试导致重复收费。
+- 用户重试失败任务创建新任务并保留原任务关联；底层瞬时失败重试记录在 `generation_attempts`。
+- 若启用 Credits，预留、结算和释放 MUST 使用 PostgreSQL 唯一业务键与账本保证幂等，不得根据 Elasticsearch 或供应商重复回调重复扣费。
 
 任务记录 SHOULD 包含 id、type、status、progress、input、result、error、retry_count、max_retries，以及 created、queued、started、finished 时间。是否全部落列由该用例决定，但状态和时间必须足以恢复。
 
 可靠性 MUST 覆盖：重试、超时、幂等、重复执行、Worker 崩溃、供应商超时、429、5xx、恢复和取消。
 
-领取任务 MUST 使用租约和心跳。用户重试创建新任务；同一次提交的瞬时重试写入 attempt。
-
-对话：先写 PostgreSQL 中的用户消息和 `chat_run`，再用鉴权 SSE 推送 `started`、`delta`、`citation`、`completed`、`failed`。最终助手消息 MUST 先写入 PostgreSQL，然后才能发送 `completed`。Redis 可以暂存流事件。断线不自动取消；重连使用 `Last-Event-ID`，过期则返回 PostgreSQL 快照。失败的部分输出 MUST NOT 标成完整答案。每个会话同时只允许一个活跃 run，冲突返回 409。
-
 详见 [ADR-005](docs/adr/005-celery-redis-workers.md) 与 [ADR-009](docs/adr/009-task-state-machine.md)。
 
-## 16. Storage Architecture
+## 16. Chat, RAG, and Memory
+
+### 16.1 对话
+
+POST 创建持久消息和 `chat_run`，返回运行 ID。Worker 执行模型调用，浏览器用经过鉴权的 SSE 读取事件。事件最少包含 `event_id`、`run_id`、`type` 和 `data`，类型统一为 `started` / `delta` / `citation` / `completed` / `failed` / `snapshot`。
+
+用户消息与运行记录先入 PostgreSQL。助手最终消息、引用及模型调用元数据写入 PostgreSQL 后才能发送 `completed`。短期流事件可进入 Redis 并设置保留期，最终业务结果始终来自 PostgreSQL。断线不自动取消运行；重连使用 `Last-Event-ID`，事件已过期则返回 PostgreSQL 中的运行快照。失败的部分输出 MUST NOT 标成完整答案。
+
+每个会话同时只允许一个活跃 `chat_run`，通过 PostgreSQL 约束或锁保证；并发提交返回 409。上下文长度与输出 token MUST 设置上限，超限执行有版本记录的摘要。系统提示词和提示词模板 MUST 在后端集中管理、版本化，不能散落在 Router 或前端。
+
+同项目会话可使用项目记忆；会话历史仍按 `conversation_id` 隔离。禁止通过邮箱、相似度或用户 ID 进行跨项目记忆召回。
+
+### 16.2 RAG
+
+入库链路：
+
+```text
+Upload → Parse → Normalize → Chunk → Embedding → Index → Retrieval
+```
+
+上传并校验文件 → PostgreSQL 文档记录与 Outbox → 异步解析 → 规范化分块 → PostgreSQL 保存原文、分块、页码/段落位置与版本 → Embedding → Elasticsearch 索引。PostgreSQL 单独记录 `ingestion_status` 与 `index_status`，允许“解析成功、索引失败”，不能把两者混为一个状态。
+
+检索链路：授权项目 → 查询规范化 → Elasticsearch 项目内全文/向量混合召回 → PostgreSQL 校验命中版本、来源和可访问性 → 可选重排 → token 预算裁剪 → 组装上下文 → 模型回答并提供引用。
+
+- 分块规则、embedding 模型/维度、索引映射和检索参数 MUST 版本化。切换 embedding 模型 MUST 重建对应索引，禁止混用不兼容向量。
+- embedding 是可重新计算的派生数据；不能只在 Elasticsearch 保存分块原文、来源或唯一生成记录。
+- 文档更新后旧版本默认不可用于 RAG；索引未追平期间应报告资料处理中。
+- 引用至少包含 `document_id`、`document_version`、`chunk_id` 与可定位的页码/段落，最终引用关系 MUST 持久化到 PostgreSQL。
+- 无有效证据时明确说明。检索文本是非可信资料。
+
+解析 MUST 经过统一 Parser。首期格式为 PDF、DOCX、TXT、Markdown。业务代码不得按文件格式分支。见 [ADR-012](docs/adr/012-document-parser.md)。
+
+### 16.3 项目记忆
+
+记忆用于项目内稳定事实，如角色设定、视觉风格和用户确认的创作要求。原始对话不是自动可信的长期记忆。
+
+- 默认由用户显式保存，或模型提出候选后由用户确认。模型不能静默改写既有设定。
+- PostgreSQL 的 `memories` 保存聚合身份与当前修订，`memory_revisions` 保存内容、来源、版本、确认人和 `active` / `superseded` / `deleted` 状态，详见数据规范。
+- 用户可查看、编辑、撤销和删除记忆；更新保留版本关系，不直接丢失来源。
+- 召回先按授权项目和 `active` 状态过滤；Elasticsearch 仅生成候选，PostgreSQL 验证后才进入上下文。
+- 当前明确指令与记忆冲突时优先处理当前指令，并提示用户是否更新记忆；不能因一次临时指令自动改写记忆。
+- 不自动存储密钥、支付信息等敏感数据；记忆摘要不可成为原始事实的唯一副本。
+
+## 17. Storage Architecture
 
 ```text
 Asset
@@ -324,7 +434,7 @@ Asset
   └── FILE
 ```
 
-字节 MUST 进入对象存储。PostgreSQL 保存 asset_id、object_key、校验和、MIME、大小、宽高、时长、状态、来源和项目归属。
+字节 MUST 进入对象存储。PostgreSQL 保存 asset_id、object_key、校验和、MIME、大小、宽高、时长、状态、来源和项目归属。媒体字节及原始文件必须有备份与恢复策略；Elasticsearch 重建可读取 PostgreSQL 记录引用的原始对象。
 
 桶 MUST 默认私有。签名 URL MUST 在授权后短期签发。
 
@@ -332,7 +442,7 @@ Asset
 
 详见 [ADR-006](docs/adr/006-s3-object-storage.md)。
 
-## 17. API Architecture
+## 18. API Architecture
 
 统一前缀 `/api/v1`。项目资源嵌套在 `/projects/{project_id}` 下。
 
@@ -345,7 +455,8 @@ GET  /api/v1/projects/{project_id}/chat-runs/{run_id}
 GET  /api/v1/projects/{project_id}/chat-runs/{run_id}/events
 POST /api/v1/projects/{project_id}/documents
 GET  /api/v1/projects/{project_id}/search
-GET/POST/PATCH/DELETE /api/v1/projects/{project_id}/memories[/{memory_id}]
+GET/POST /api/v1/projects/{project_id}/memories
+GET/PATCH/DELETE /api/v1/projects/{project_id}/memories/{memory_id}
 POST /api/v1/projects/{project_id}/generation-tasks
 GET  /api/v1/projects/{project_id}/generation-tasks/{task_id}
 POST /api/v1/projects/{project_id}/generation-tasks/{task_id}/cancel
@@ -363,7 +474,7 @@ error.details
 request_id
 ```
 
-HTTP 状态码 MUST 表达成败。禁止用 HTTP 200 表示失败。
+HTTP 状态码 MUST 表达成败。禁止用 HTTP 200 表示失败。时间字段为 ISO 8601 UTC。
 
 生成提交 MUST 接受 `Idempotency-Key`。相同键和相同请求返回原任务；相同键、不同请求返回 409。长任务创建成功返回 202 和 `task_id`。
 
@@ -371,7 +482,7 @@ HTTP 状态码 MUST 表达成败。禁止用 HTTP 200 表示失败。
 
 变更公开 URL、字段或错误码视为公开 API 变更，MUST 在变更说明中写出，MUST NOT 静默修改。
 
-## 18. Authentication
+## 19. Authentication
 
 首期使用服务端会话 Cookie：HttpOnly、Secure、SameSite。变更请求 MUST 校验 CSRF。会话撤销以 PostgreSQL 为准。
 
@@ -381,7 +492,7 @@ CORS MUST 使用明确白名单。禁止携带凭据并反射任意 Origin。
 
 详见 [ADR-007](docs/adr/007-cookie-session-auth.md)。
 
-## 19. Authorization
+## 20. Authorization
 
 每个项目请求 MUST 先认证，再从 PostgreSQL 检查成员身份。
 
@@ -396,11 +507,13 @@ MUST NOT 在首期实现 Role、Permission、Resource、Policy 组成的 RBAC。
 
 敏感操作 MUST 在执行时重新校验，不能只依赖进入页面时的缓存。
 
-Worker 在新的外部调用前 MUST 重新检查项目、资源和发起人。项目已删除或权限已撤销时 MUST 停止提交。
+Worker 在新生成、文本或 embedding 调用前 MUST 重新检查项目、资源和发起人。项目已删除或权限已撤销时 MUST 停止新增提交。已提交任务的查询、尽力取消和清理由受限系统恢复身份收尾，不得因原发起人撤权永久卡住。
+
+Elasticsearch 过滤、缓存键、对象路径、任务事件和日志上下文 MUST 携带项目范围。
 
 A 项目的用户 MUST NOT 读取、检索、引用、修改或签名访问 B 项目的消息、记忆、文档、任务和资源。
 
-## 20. Billing
+## 21. Billing
 
 首期 MUST NOT 实现订单、支付、Credits 或 Quota 账本。
 
@@ -410,7 +523,7 @@ A 项目的用户 MUST NOT 读取、检索、引用、修改或签名访问 B �
 
 详见 [ADR-010](docs/adr/010-billing-deferred.md)。
 
-## 21. Error Handling
+## 22. Error Handling
 
 统一错误类型：
 
@@ -441,15 +554,15 @@ except Exception:
 
 禁止吞掉异常后返回空成功。异常日志 MUST NOT 输出密钥。
 
-## 22. Logging
+## 23. Logging
 
 使用 structlog 输出结构化日志。
 
 业务日志 SHOULD 包含 `request_id`、`trace_id`、`user_id`、`project_id`、`task_id`、`run_id`、`generation_id` 中实际存在的字段。
 
-默认 MUST NOT 记录原始提示词、文档正文、会话令牌、密码和供应商密钥。
+默认 MUST NOT 记录原始提示词、文档正文、会话令牌、密码、token 和供应商密钥。
 
-## 23. Observability
+## 24. Observability
 
 健康检查 MUST 区分进程存活和依赖就绪。
 
@@ -457,21 +570,25 @@ SHOULD 观察：API 延迟、任务排队时间、供应商错误、Outbox 积�
 
 首期不部署完整 APM。引入 OpenTelemetry 或指标系统时不得改变业务边界。
 
-## 24. Security
+## 25. Security
 
 MUST 覆盖：认证、授权、输入校验、文件校验、限流、密钥管理、SQL 注入、XSS、CSRF、SSRF、上传、签名 URL 和供应商回调验签。
 
 Secret MUST NOT 写入仓库。配置样例不得包含真实凭据。
 
-供应商回调 MUST 验签、限时并去重。对象桶默认私有。
+供应商密钥仅后端可读。PostgreSQL 保存密钥引用，接口 MUST NOT 返回明文。
 
-## 25. Testing
+供应商回调 MUST 验签、限时并去重。供应商状态经过适配与 Service 验证后才进入 PostgreSQL。对象桶默认私有。
 
-后端使用 pytest。涉及事务、隔离和索引的测试 MUST 使用真实测试用 PostgreSQL 和 Elasticsearch。供应商调用使用替身。
+## 26. Testing
+
+后端使用 pytest。涉及事务、隔离和索引的测试 MUST 使用真实测试用 PostgreSQL 和 Elasticsearch。供应商调用使用替身。替身必须明确标记，且不得进入生产配置。
 
 前端使用 Vitest 与 Testing Library。核心路径“创建项目 → 对话 → 生成 → 查看结果”使用 Playwright。
 
-首期 MUST 覆盖：
+CI MUST 运行格式、lint、类型检查、必要测试和前端 build，并验证 OpenAPI 客户端同步。
+
+首期 MUST 覆盖下列业务风险，不能仅测试函数是否按实现调用：
 
 1. 跨项目读写、检索、引用和签名访问被拒绝。
 2. PostgreSQL 已提交而 Elasticsearch 或 Redis 失败时，业务结果仍正确，恢复后可以重放并追平索引。
@@ -482,9 +599,9 @@ Secret MUST NOT 写入仓库。配置样例不得包含真实凭据。
 
 未运行的检查 MUST NOT 被写成已通过。
 
-## 26. Deployment
+## 27. Deployment
 
-开发环境用 Docker Compose 提供 PostgreSQL、Elasticsearch、Redis、MinIO、API 和 Worker。
+目标开发环境用 Docker Compose 提供 PostgreSQL、Elasticsearch、Redis、MinIO、API 和 Worker。当前 Compose 仅包含前四项，已有启动命令与未实现部分见运行规范。
 
 API、Worker、Outbox Dispatcher SHOULD 可以独立启动，并共用同一镜像中的不同命令。
 
@@ -492,7 +609,7 @@ API、Worker、Outbox Dispatcher SHOULD 可以独立启动，并共用同一镜�
 
 首期不用 Kubernetes。
 
-## 27. Architecture Constraints
+## 28. Architecture Constraints
 
 ### MUST
 
@@ -525,7 +642,7 @@ API、Worker、Outbox Dispatcher SHOULD 可以独立启动，并共用同一镜�
 - 静默改变技术栈或增加重复基础设施。
 - AI Agent 在未确认时修改架构。
 
-## 28. Forbidden Patterns
+## 29. Forbidden Patterns
 
 - `utils.py`、`utils2.py`、`service_v2.py`、`common_new.py` 这类平行副本。
 - 无范围的 `get_by_id`。
@@ -539,37 +656,60 @@ API、Worker、Outbox Dispatcher SHOULD 可以独立启动，并共用同一镜�
 - 硬编码密钥。
 - 捕获 `Exception` 后忽略。
 - 为了少写几十行代码新增一个大型依赖。
+- 用假数据掩盖未实现的功能。
 
 新增 Service、Repository、Gateway、队列或框架之前，必须能说明现有结构为什么不够。不能说明就修改现有代码。
 
-## 29. Configuration
+## 30. Configuration
 
 配置 MUST 通过统一 Settings 读取环境变量，并区分 development、testing、staging、production。
 
 业务代码 MUST NOT 到处调用 `os.getenv`。
 
-## 30. Resolved Decisions
+## 31. Change Rules
+
+开始实现前必须阅读本文、相关 ADR 和受影响模块代码。每次变更应满足：
+
+- 明确归属模块、API 契约、数据模型和状态迁移后再写代码。
+- 先复用现有实现，不随意改目录结构、命名、依赖或代码风格。
+- 业务数据先写 PostgreSQL；所有新增项目资源和检索入口必须带项目隔离。
+- 外部服务必须经过 `infrastructure`；不能把 SDK 调用散落在 Router、组件和 Worker 中。
+- 新增持久字段必须有迁移；变更 API 必须更新 OpenAPI 类型；变更行为必须覆盖相应风险测试。
+- 不引入未请求的功能或大规模重构。开发替身必须明确标记并与生产配置隔离。
+- 完成说明必须列出改动、已执行的验证和未解决限制。未执行的检查不能宣称通过。
+- 引入新基础设施、跨项目数据共享、修改计费或状态模型前，先记录 ADR 并更新本文。
+
+不能仅依靠提示词保证隔离和一致性。关键约束通过 `AGENTS.md`、CI 和边界测试落实。
+
+## 32. Resolved Decisions
 
 1. 视频状态同步：Provider 屏蔽 Polling 与 Webhook 的差异。首期默认 Polling，不为 Webhook 预建复杂基础设施。见 [ADR-011](docs/adr/011-video-status-sync.md)。
 2. 知识库文件：首期实现 PDF、DOCX、TXT、Markdown。解析必须经过统一 Parser，业务代码不得按文件格式分支。后续格式通过新 Parser 接入。见 [ADR-012](docs/adr/012-document-parser.md)。
 3. 成员角色：首期只有 OWNER 和 MEMBER。见 [ADR-013](docs/adr/013-project-membership-roles.md)。
 
-仍留到对应实现阶段、且不改变当前边界的事项：首个视频、LLM 与 Embedding 供应商，文件大小上限，生成并发限额，数据保留周期。
+默认文件上限、并发、保留周期、重试和运行限制已在 [运行与验收](docs/specs/operations-and-acceptance.md) 固定。生成参数来自版本化模型能力。首期不启用 Credits。接入阶段仍需选择并验证真实视频、LLM、Embedding 供应商，配置账号凭据和生产环境；不得把这些外部条件标记为已完成。
 
-知识库链路固定为：
-
-```text
-Upload → Parse → Normalize → Chunk → Embedding → Index → Retrieval
-```
-
-## 31. Implementation Order
+## 33. Implementation Order
 
 初始化代码前，本文和 ADR 必须保持为当前约束。
 
 1. 工程骨架、认证、项目权限、迁移、统一错误和日志、前端基础布局。
-2. Outbox、Worker、视频适配器替身、任务状态机、对象存储和生成记录。
+2. Outbox、Worker、视频适配器替身、任务状态机、对象存储和生成记录；先用受控替身打通端到端链路。
 3. 持久对话、SSE、模型配置和真实文本供应商。
 4. 文档解析、分块、异步索引、RAG 引用和索引重建。
-5. 用户确认的项目记忆、隔离回归、恢复演练。
+5. 用户确认的项目记忆、隔离回归、恢复演练与部署验收。
 
 第一次实现只建立当前步骤需要的骨架，不生成未验证的完整业务功能。
+
+## 34. Implementation Contracts
+
+以下为本文的规范性细则，代码评审必须按受影响主题检查：
+
+- [数据模型、事务、幂等](docs/specs/data-and-transactions.md)
+- [任务状态、可靠投递、索引恢复](docs/specs/tasks-and-events.md)
+- [API、权限、上传与 SSE](docs/specs/api-and-access.md)
+- [RAG、引用、上下文与记忆](docs/specs/rag-and-memory.md)
+- [前端页面、组件、状态和交互](docs/specs/frontend.md)
+- [运行默认值、当前差距与验收](docs/specs/operations-and-acceptance.md)
+
+总架构不重复维护字段或完整状态表。改变细则中公开契约需要同步其调用方与测试；改变架构边界需要 ADR。用户已明确授权的文档修订可在记录决策后完成，无需为同一授权重复确认。

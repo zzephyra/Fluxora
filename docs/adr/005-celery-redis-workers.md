@@ -39,3 +39,5 @@ BackgroundTasks 随 API 进程生死，不能用于长任务。
 ## Migration
 
 项目尚未实现，无迁移。
+
+执行模式、租约 fencing 和投递完成判定见 [任务与同步](../specs/tasks-and-events.md)。
