@@ -107,8 +107,8 @@ flowchart TB
 | API | Python 3.12+ · FastAPI · Pydantic | 已有基础骨架 |
 | 数据访问 | SQLAlchemy 2 async · asyncpg · Alembic | 已接入；身份与项目迁移已创建 |
 | 日志与配置 | structlog · pydantic-settings | 已接入 |
-| 前端 | React · TypeScript · Vite | 开发服务器可由 Compose 启动 |
-| 界面与请求 | Tailwind CSS · shadcn/ui · TanStack Query · React Router | Tailwind 已接入；页面与其余组件待实现 |
+| 前端 | React · TypeScript · Vite | 登录页和项目列表可由 Compose 启动 |
+| 界面与请求 | Tailwind CSS · shadcn/ui · TanStack Query · React Router | 登录与项目列表已接入；工作台与其余页面待实现 |
 | 检索 | Elasticsearch | 已有本地服务配置，业务待接入 |
 | 异步执行 | Celery · Redis | 已选型；Redis 已有本地配置，Worker 待实现 |
 | 文件存储 | S3 兼容存储 · MinIO | 已有本地服务配置，业务待接入 |
@@ -117,7 +117,7 @@ flowchart TB
 
 ## ⚡ 快速开始
 
-以下步骤用 Docker 启动当前 API 和前端开发服务器。产品页面和生成服务仍未实现。
+以下步骤用 Docker 启动当前 API 和前端开发服务器。登录页和项目列表可用；工作台和生成服务仍未实现。
 
 ### 1. 准备环境
 
@@ -175,7 +175,7 @@ curl http://127.0.0.1:8000/readyz
 | [MinIO Console](http://127.0.0.1:9001) | 本地对象存储控制台，凭据见 Compose |
 
 > [!NOTE]
-> `/healthz` 成功不代表数据库或模型服务已就绪。当前 `/readyz` 检查 PG。前端页面目前只确认开发服务器与 API 是否连通，登录和项目界面仍未实现。
+> `/healthz` 成功不代表数据库或模型服务已就绪。当前 `/readyz` 检查 PG。前端已有登录页和项目列表；工作台、对话、资料和生成仍未实现。
 
 ### 5. 运行现有检查
 

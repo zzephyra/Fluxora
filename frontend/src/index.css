@@ -2,14 +2,16 @@
 
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif;
-  --color-canvas: #f8fafc;
-  --color-panel: #ffffff;
-  --color-ink: #0f172a;
-  --color-muted: #475569;
-  --color-line: #cbd5e1;
-  --color-primary: #1d4ed8;
-  --color-danger: #b91c1c;
-  --color-success: #166534;
+  --color-canvas: #10110f;
+  --color-panel: #191b17;
+  --color-ink: #f2f0e9;
+  --color-muted: #9b9e92;
+  --color-line: #3b4032;
+  --color-primary: #d3f96b;
+  --color-danger: #f0b4ae;
+  --color-success: #c6e27a;
+  --color-on-primary: #1a2410;
+  --color-scrim: #000000;
 }
 
 body {
@@ -20,4 +22,11 @@ body {
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.studio {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 50% -10%, #343f2266, transparent 52%),
+    var(--color-canvas);
 }

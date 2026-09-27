@@ -18,3 +18,7 @@
 | [012](012-document-parser.md) | 知识库文档解析 | Accepted |
 | [013](013-project-membership-roles.md) | 项目成员角色 | Accepted |
 | [014](014-executable-contracts.md) | 可执行契约与恢复边界 | Accepted |
+
+| [015](015-marketing-landing.md) | 独立官网展示层与品牌主题 | Accepted |
+| [016](016-oauth-github-google.md) | GitHub 与 Google 登录 | Proposed |
+| [017](017-workspace-navigation.md) | 三入口项目工作区 | Accepted |

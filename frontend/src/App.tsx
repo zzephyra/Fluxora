@@ -1,42 +1,64 @@
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router";
 
-type ApiState = "loading" | "ready" | "unavailable";
+import { LandingPage } from "./features/landing";
+import { LoginPage, RequireSession } from "./features/auth";
+import { ProjectEntryPage, ProjectsPage } from "./features/projects";
+import { setUnauthorizedHandler } from "./lib/api";
 
 export function App() {
-  const [apiState, setApiState] = useState<ApiState>("loading");
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/readyz", { signal: controller.signal })
-      .then((response) => {
-        setApiState(response.ok ? "ready" : "unavailable");
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-        setApiState("unavailable");
-      });
-    return () => controller.abort();
-  }, []);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+          mutations: { retry: false },
+        },
+      }),
+  );
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-6 py-8">
-      <h1 className="text-2xl font-semibold text-ink">Fluxora</h1>
-      <section className="rounded-xl border border-line bg-panel p-6">
-        <h2 className="text-lg font-semibold">产品页面尚未开放</h2>
-        <p className="mt-3 text-muted">
-          登录、项目和工作台仍在实现中。此页只确认前端开发服务器和 API 是否连通，不展示演示数据。
-        </p>
-        <p className="mt-4" role="status">
-          {apiState === "loading" && "正在检查 API"}
-          {apiState === "ready" && "API 已就绪"}
-          {apiState === "unavailable" && "API 未就绪"}
-        </p>
-        <a className="mt-6 inline-flex h-10 items-center text-primary" href="/docs">
-          打开 API 文档
-        </a>
-      </section>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <UnauthorizedRedirect />
+        <Routes>
+          <Route element={<LandingPage />} path="/" />
+          <Route element={<LoginPage />} path="/login" />
+          <Route
+            element={
+              <RequireSession>
+                <ProjectsPage />
+              </RequireSession>
+            }
+            path="/projects"
+          />
+          <Route
+            element={
+              <RequireSession>
+                <ProjectEntryPage />
+              </RequireSession>
+            }
+            path="/projects/:projectId/*"
+          />
+          <Route element={<Navigate replace to="/projects" />} path="*" />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
+}
+
+function UnauthorizedRedirect() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      queryClient.clear();
+      navigate("/login", { replace: true });
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [navigate, queryClient]);
+
+  return null;
 }

@@ -1,0 +1,68 @@
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { describe, expect, it, vi } from "vitest";
+import { Workspace } from "./workspace";
+import { creativePresets } from "./presets";
+import type { Project } from "../types";
+vi.mock("../../auth", () => ({ AccountMenu: () => <button>账户菜单</button> }));
+const project: Project = { id: "11111111-1111-4111-8111-111111111111", name: "远行计划", role: "OWNER", version: 1, created_at: "2026-09-27", updated_at: "2026-09-27" };
+function setup(suffix = "") {
+  const user = userEvent.setup();
+  render(<MemoryRouter initialEntries={[`/projects/${project.id}${suffix}`]}><Routes><Route path="/projects/:projectId/*" element={<Workspace project={project} />} /></Routes></MemoryRouter>);
+  return user;
+}
+describe("Workspace", () => {
+  it("fills a preset and previews it without claiming an AI response", async () => {
+    const user = setup();
+    await user.click(screen.getByRole("button", { name: /把灵感写成故事/ }));
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveValue(creativePresets[0].prompt);
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "预览创作需求" }));
+    expect(within(screen.getByRole("dialog")).getByText(/尚未发送给 AI/)).toBeInTheDocument();
+  });
+  it("fills a world-building draft from a concept reference card", async () => {
+    const user = setup();
+    await user.click(screen.getByRole("button", { name: /去往，未被定义的世界/ }));
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveValue(creativePresets[2].prompt);
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveFocus();
+    expect(screen.getByText("概念参考 · 点击带入创作需求")).toBeInTheDocument();
+  });
+  it("highlights the current route and keeps the draft when browsing within a project", async () => {
+    const user = setup();
+    const nav = screen.getByRole("navigation", { name: "工作区导航" });
+    await user.type(screen.getByRole("textbox", { name: "创作需求" }), "只属于本项目的灵感");
+    await user.click(within(nav).getByRole("link", { name: "资产" }));
+    expect(within(nav).getByRole("link", { name: "资产" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "创作" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByText(/当前未查询真实资产/)).toBeInTheDocument();
+    await user.click(within(nav).getByRole("link", { name: "创作" }));
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveValue("只属于本项目的灵感");
+  });
+  it("supports direct generation routes and clearly disables unavailable submission", async () => {
+    const user = setup("/generation");
+    await user.click(screen.getByRole("button", { name: "图片生成" }));
+    expect(screen.getByRole("button", { name: "图片生成" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /生成图片 · 暂未开放/ })).toBeDisabled();
+    expect(screen.getByLabelText("生成模型")).toBeDisabled();
+  });
+  it("clears local state when the project-keyed workspace changes", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<MemoryRouter initialEntries={[`/projects/${project.id}`]}><Workspace key={project.id} project={project} /></MemoryRouter>);
+    await user.type(screen.getByRole("textbox", { name: "创作需求" }), "项目一的私人草稿");
+    // Mirrors ProjectEntryPage's key boundary; no state is copied between projects.
+    rerender(<MemoryRouter initialEntries={[`/projects/${project.id}`]}><Workspace key="another-project-instance" project={project} /></MemoryRouter>);
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveValue("");
+  });
+
+  it("requires confirmation before clearing a draft", async () => {
+    const user = setup();
+    await user.type(screen.getByRole("textbox", { name: "创作需求" }), "不要丢失");
+    await user.click(screen.getByRole("button", { name: "新建草稿" }));
+    await user.click(screen.getByRole("button", { name: "保留草稿" }));
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveValue("不要丢失");
+    await user.click(screen.getByRole("button", { name: "新建草稿" }));
+    await user.click(screen.getByRole("button", { name: "清空并新建" }));
+    expect(screen.getByRole("textbox", { name: "创作需求" })).toHaveValue("");
+  });
+});
