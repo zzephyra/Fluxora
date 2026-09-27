@@ -265,6 +265,14 @@ README 负责介绍和导航，具体规则在对应规范中维护。开始实�
 | 页面布局、组件、交互与缓存 | [前端规范](docs/specs/frontend.md) |
 | 当前代码差距、运行限制、部署与验收 | [运行与验收](docs/specs/operations-and-acceptance.md) |
 
+## ⌁ Cursor Project Rules
+
+仓库已配置 [architecture-first.mdc](.cursor/rules/architecture-first.mdc)，使用 `alwaysApply: true`。建议在 Cursor 中直接打开 **Fluxora 根目录**，在规则设置中确认该规则显示为 **Always Apply**；规则格式与应用方式见 [Cursor 官方说明](https://cursor.com/docs/rules)。
+
+规则要求 Agent 在分析、规划和修改前读取 `AGENTS.md`、`ARCHITECTURE.md` 和规范索引，再按任务读取相关细则及 ADR。跨模块事务、项目隔离、任务状态和 API 契约必须先核对，禁止擅自增加技术栈或扩大功能范围。
+
+可以用“请说明本任务依据哪些架构文件、涉及哪个模块、准备如何验证，先不要改代码”检查读取情况。规则属于上下文指导，不替代 CI 与业务测试；本仓库配置已写入，是否在当前 Cursor 会话加载需在客户端确认。
+
 ## ↗ 参与开发
 
 1. 阅读 [AGENTS.md](AGENTS.md)、总架构和受影响主题的规范，检查已有实现。
