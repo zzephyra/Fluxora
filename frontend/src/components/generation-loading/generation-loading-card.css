@@ -1,0 +1,289 @@
+.glc-slot {
+  container-type: size;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  place-items: center;
+}
+
+.glc {
+  --glc-ink: #d3f96b;
+  position: relative;
+  width: min(100cqi, calc(100cqb * var(--glc-w) / var(--glc-h)));
+  max-height: 100%;
+  aspect-ratio: var(--glc-w) / var(--glc-h);
+  overflow: hidden;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 68% 42%, rgb(211 249 107 / 14%), transparent 42%),
+    radial-gradient(ellipse at 18% 80%, rgb(36 72 64 / 55%), transparent 46%),
+    linear-gradient(165deg, #121814 0%, #0c1210 48%, #10140f 100%);
+  color: #f2f0e9;
+  isolation: isolate;
+}
+
+.glc-chrome,
+.glc-border,
+.glc-energy,
+.glc-dots-wrap,
+.glc-dots,
+.glc-scanner,
+.glc-particle,
+.glc-hud,
+.glc-status,
+.glc-progress,
+.glc-flash,
+.glc-frame {
+  position: absolute;
+  pointer-events: none;
+}
+
+.glc-chrome {
+  inset: 0;
+}
+
+.glc-border {
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    115deg,
+    transparent 18%,
+    rgb(211 249 107 / 0%) 32%,
+    rgb(211 249 107 / 55%) 48%,
+    transparent 64%
+  );
+  background-size: 220% 100%;
+  animation: glc-border 7s linear infinite;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.glc-energy {
+  width: 46%;
+  height: 46%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(211 249 107 / 28%), transparent 68%);
+  filter: blur(18px);
+  opacity: 0.55;
+  animation: glc-drift 9s ease-in-out infinite;
+}
+
+.glc-energy-a {
+  top: 18%;
+  right: 12%;
+}
+
+.glc-energy-b {
+  bottom: 8%;
+  left: 10%;
+  width: 34%;
+  height: 34%;
+  opacity: 0.35;
+  animation-duration: 11s;
+  animation-direction: alternate;
+}
+
+.glc-dots-wrap {
+  inset: 8% 6% 18% 22%;
+}
+
+.glc-dots {
+  inset: 0;
+  background-image: radial-gradient(circle, rgb(211 249 107 / 72%) 0.7px, transparent 0.85px);
+  background-size: 13px 13px;
+  mask-image: radial-gradient(ellipse at 62% 48%, #000 0%, transparent 70%);
+  opacity: 0.55;
+  animation: glc-breathe 4.6s ease-in-out infinite;
+}
+
+.glc-dots-flicker {
+  background-size: 17px 17px;
+  opacity: 0.28;
+  animation-duration: 3.2s;
+  animation-delay: -1.4s;
+}
+
+.glc-scanner {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(211 249 107 / 0%) 18%,
+    rgb(211 249 107 / 16%) 50%,
+    transparent 82%
+  );
+}
+
+.glc-particle {
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--glc-ink);
+  opacity: 0.28;
+  animation: glc-particle 14s linear infinite;
+}
+
+.glc-hud {
+  top: 14px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.32;
+}
+
+.glc-status {
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.glc-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.glc-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.glc-arrows {
+  display: inline-flex;
+  gap: 3px;
+  color: var(--glc-ink);
+  letter-spacing: 0;
+}
+
+.glc-sub {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  opacity: 0.58;
+}
+
+.glc-percent {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  opacity: 0.7;
+}
+
+.glc-progress {
+  right: 16px;
+  bottom: 0;
+  left: 16px;
+  height: 1px;
+  background: rgb(242 240 233 / 12%);
+}
+
+.glc-progress > span {
+  display: block;
+  height: 100%;
+  background: rgb(211 249 107 / 80%);
+}
+
+.glc-flash {
+  inset: 0;
+  background: radial-gradient(ellipse at 64% 46%, rgb(211 249 107 / 42%), transparent 58%);
+}
+
+.glc-frame {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.glc-failed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px;
+  background: linear-gradient(180deg, transparent 40%, rgb(16 17 15 / 72%));
+}
+
+.glc-failed p {
+  margin: 0;
+  color: #c98984;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.glc-retry {
+  border: 1px solid rgb(201 137 132 / 45%);
+  border-radius: 999px;
+  background: transparent;
+  color: #e7c6c2;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+}
+
+.glc-failed,
+.glc-retry {
+  pointer-events: auto;
+}
+
+@keyframes glc-border {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+@keyframes glc-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-12px, 8px, 0); }
+}
+
+@keyframes glc-breathe {
+  0%, 100% { opacity: 0.38; }
+  50% { opacity: 0.72; }
+}
+
+@keyframes glc-particle {
+  0% { transform: translate3d(0, 8px, 0); opacity: 0; }
+  20% { opacity: 0.35; }
+  100% { transform: translate3d(0, -36px, 0); opacity: 0; }
+}
+
+.glc[data-status="failed"] .glc-border,
+.glc[data-status="failed"] .glc-energy {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glc-border,
+  .glc-energy,
+  .glc-dots,
+  .glc-particle {
+    animation: none;
+  }
+}

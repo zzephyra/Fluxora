@@ -38,21 +38,25 @@ GET /auth/csrf 发放短期预认证 CSRF token/cookie；登录和修改请求�
 | 对话、上传、生成、编辑/删除项目内容和记忆 | 允许 | 允许，内容属共享项目 |
 | 取消生成 | 任意任务 | 仅本人任务 |
 | 项目改名/删除、添加/移除成员 | 允许 | 禁止 |
-| 系统模型配置/任务人工核对 | 受控管理命令 | 受控管理命令 |
+| 系统模型配置 | 禁止。平台管理员不是项目角色 | 禁止。平台管理员不是项目角色 |
+| 任务人工核对 | 受控管理命令 | 受控管理命令 |
 
 删除文档后历史引用显示“来源已删除”，不返回正文；删除被非终态任务引用的 Asset 返回 resource_in_use。整体项目删除由系统后台收尾，不受此单资源限制。
 
+平台管理员由 users.platform_admin 表示，只能通过管理员命令设置。每次管理请求都从 PostgreSQL 重查该标记。项目 OWNER 与 MEMBER 都不能改模型目录。非管理员访问管理接口返回 404，不返回 403。
+
 ## 3. 首期路由契约
 
-下表是待实现契约。普通 DTO 至少包含 id、created_at、updated_at；可编辑聚合增加 version。不得返回 object_key、secret_ref 或会话哈希。
+下表是待实现契约。普通 DTO 至少包含 id、created_at、updated_at；可编辑聚合增加 version。项目业务 DTO 不得返回 object_key、secret_ref 或会话哈希。模型管理响应可以返回 secret_ref 名称，不能返回密钥值。
 
 | 方法与路径 | 请求要点 | 成功响应 |
 | --- | --- | --- |
 | GET /auth/csrf | 无 | 200 {csrf_token} |
-| POST /auth/login | email,password；CSRF | 200 {user:{id,email}} + Cookie |
-| GET /auth/me | 无 | 200 {id,email} |
+| POST /auth/login | email,password；CSRF | 200 {user:{id,email,platform_admin}} + Cookie |
+| GET /auth/me | 无 | 200 {id,email,platform_admin} |
 | POST /auth/logout | CSRF | 204 |
-| GET/POST /projects | POST: name(1–120 字) | 列表 / 201 Project |
+| GET/POST /projects | POST: name(1–120 字)，创建 kind=standard 的创作空间 | 列表 / 201 Project |
+| POST /projects/personal | CSRF。不接受名称或用户 ID | 200 当前用户的个人空间。没有未删除的个人空间时创建，名称为个人空间，调用者成为 OWNER。并发由部分唯一索引保证每人至多一个。删除后再次调用会新建，不恢复旧数据，也不改写其他空间 |
 | GET/PATCH/DELETE P | PATCH: name,expected_version | Project / Project / 204 |
 | GET/POST P/members | POST: user_id，固定 MEMBER | 列表 / 201 Member |
 | DELETE P/members/{user_id} | 不允许 OWNER | 204 |
@@ -72,17 +76,25 @@ GET /auth/csrf 发放短期预认证 CSRF token/cookie；登录和修改请求�
 | GET/POST P/memories | POST: content,kind,source?；显式保存即确认 | 列表 / 201 Memory |
 | GET/PATCH/DELETE P/memories/{id} | PATCH: content,expected_version | Memory / 新修订 Memory / 204 |
 | GET P/memories/{id}/revisions | 无 | 修订列表 |
-| GET P/models | capability | 可用模型及参数 schema/限制 |
-| GET/POST P/generation-tasks | POST: prompt,model_config_id,parameters,reference_asset_ids,retry_of_task_id?；幂等键 | 列表 / 202 GenerationTask |
+| GET P/models | capability 可选 | 200 {items:[{id,provider,model_name,capability,config_version,parameters_schema,limits}]}。仅已启用配置，非成员 404，不含 secret_ref。产品页面不用它选择模型 |
+| GET P/active-model | capability 必填 | 200 当前指定的公开模型；未指定或非成员 404。不含 secret_ref |
+| POST P/text-completions | prompt(1–10000)；CSRF。不接受 model_config_id。服务端使用 text_generation 的当前指定 | 202 {id,status,content,error}。未指定返回 422。请求立即返回，不在请求内调用供应商 |
+| GET P/text-completions/{id} | 无 | 200 同上。非成员或跨项目 404。不含密钥 |
+| GET /admin/model-configs | 平台管理员 | 200 含 secret_ref 名称与 enabled。非管理员 404 |
+| POST /admin/model-configs | provider、model_name、capability、parameters_schema、limits、secret_ref；CSRF。不得含密钥，不能指定 config_version | 201。服务端分配版本 |
+| PATCH /admin/model-configs/{id} | {enabled:false}；CSRF | 200。只能停用，不能改已发布内容。若它是当前指定，同一事务清除 |
+| GET/PUT/DELETE /admin/model-assignments | PUT body 只有 model_config_id。能力必须与配置相同，且配置已启用 | 列表含全部能力，未指定的模型字段为空。非管理员 404。DELETE 204 |
+| GET/POST P/generation-tasks | POST: prompt,parameters,reference_asset_ids,kind（image 或 video，默认 image）；幂等键。不接受 model_config_id。图片 parameters 可为空，或只含 size（允许的宽x高）与 n（1–4），服务端使用 text_to_image。视频 parameters 只含 duration（5）和可选 size（1920*1080、1080*1920、1440*1440），服务端使用 text_to_video。参考图必须为空。列表可用 kind 过滤 | 列表 / 202 GenerationTask。未指定或不支持的参数返回 422。请求立即返回，不在请求内调用供应商。视频提交结果不明时保持 submitting 且不得重发 |
+| GET P/assets/{id}/content | 无 | 200 图片或视频字节。先校验项目成员，再在事务外读取对象。非成员或跨项目 404 |
 | GET P/generation-tasks/{id} | 无 | GenerationTask |
-| POST P/generation-tasks/{id}/cancel | 无 | 200 当前任务，取消意图已持久化 |
+| POST P/generation-tasks/{id}/cancel | 无 | 200 当前任务。仅 queued 可取消。视频进入 submitting 或 running 后返回 409，不把任务标成 canceled |
 | GET P/assets | kind | Asset 列表 |
 | GET/DELETE P/assets/{id} | 无 | Asset / 204 |
 | POST P/assets/{id}/download-url | 无 | 200 {url,expires_at} |
 
-GenerationTask 必须含 id、status、phase、progress、model_config_id、created_at、updated_at、error（null 或 {code,message,retryable}）、output_asset_ids、reconciliation_required、allowed_actions。ChatRun 包含 status/error、user_message_id、assistant_message_id、partial_content、retrieval_status。参数合法取值只由该模型能力 schema 决定，前端不写死供应商参数。
+GenerationTask 必须含 id、status、phase、progress、model_config_id、created_at、updated_at、error（null 或 {code,message,retryable}）、output_asset_ids、reconciliation_required、allowed_actions、kind（image 或 video）。ChatRun 包含 status/error、user_message_id、assistant_message_id、partial_content、retrieval_status。参数合法取值只由该模型能力 schema 决定。图片 size 使用 x，文生视频 size 使用供应商要求的 *。
 
-Project 为 {id,name,role,version,created_at,updated_at}；Member 为 {user_id,email,role}；Conversation 为 {id,title,version,created_at,updated_at}；Message 为 {id,sequence,role,content,completion_status,run_id,citations,created_at}。Document 包含 id/title/version、current_version_id、ingestion_status/index_status/error；Memory 包含 id/kind/content/version、current_revision_id、source、source_unavailable、confirmed_at；Asset 包含 id/kind/mime/size_bytes/status、宽高/时长和时间。上述业务 DTO 在实施时由 Pydantic 定义并生成 OpenAPI，细化可选字段不得改变已定义语义。
+Project 为 {id,name,role,kind,version,created_at,updated_at}，kind 为 personal 或 standard。Member 为 {user_id,email,role}；Conversation 为 {id,title,version,created_at,updated_at}；Message 为 {id,sequence,role,content,completion_status,run_id,citations,created_at}。Document 包含 id/title/version、current_version_id、ingestion_status/index_status/error；Memory 包含 id/kind/content/version、current_revision_id、source、source_unavailable、confirmed_at；Asset 包含 id/kind/mime/size_bytes/status、宽高/时长和时间。上述业务 DTO 在实施时由 Pydantic 定义并生成 OpenAPI，细化可选字段不得改变已定义语义。
 
 ## 4. 上传
 

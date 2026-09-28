@@ -23,8 +23,7 @@ def test_resolve_initial_formats() -> None:
     )
     assert resolve_document_format(filename="a.docx") is DocumentFormat.DOCX
     assert (
-        resolve_document_format(filename="a.txt", content_type="text/plain")
-        is DocumentFormat.TXT
+        resolve_document_format(filename="a.txt", content_type="text/plain") is DocumentFormat.TXT
     )
 
 

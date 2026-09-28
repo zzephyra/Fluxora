@@ -3,6 +3,7 @@ import { isRecord } from "../../lib/record";
 import type { Project, ProjectPage, ProjectRole } from "./types";
 
 export const projectListQueryKey = ["projects", "list"] as const;
+export const personalSpaceQueryKey = ["projects", "personal"] as const;
 
 export function projectDetailQueryKey(projectId: string) {
   return ["projects", projectId, "detail"] as const;
@@ -32,6 +33,7 @@ function parseProject(value: unknown): Project | null {
     version: value.version,
     created_at: value.created_at,
     updated_at: value.updated_at,
+    kind: value.kind === "personal" ? "personal" : "standard",
   };
 }
 
@@ -80,6 +82,20 @@ export async function createProject(name: string): Promise<Project> {
   });
   const project = parseProject(body);
   if (!project) {
+    throw invalidResponse();
+  }
+  return project;
+}
+
+export async function ensurePersonalSpace(signal?: AbortSignal): Promise<Project> {
+  const body = await apiRequest({
+    path: "/api/v1/projects/personal",
+    method: "POST",
+    csrf: true,
+    signal,
+  });
+  const project = parseProject(body);
+  if (!project || project.kind !== "personal") {
     throw invalidResponse();
   }
   return project;

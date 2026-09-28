@@ -1,11 +1,13 @@
 export const PROJECT_NAME_MAX_LENGTH = 120;
 
 export type ProjectRole = "OWNER" | "MEMBER";
+export type ProjectKind = "personal" | "standard";
 
 export type Project = {
   id: string;
   name: string;
   role: ProjectRole;
+  kind: ProjectKind;
   version: number;
   created_at: string;
   updated_at: string;
@@ -25,16 +27,20 @@ export function isProjectId(value: string): boolean {
 export function validateProjectName(value: string): string | null {
   const name = value.trim();
   if (name.length < 1) {
-    return "请输入项目名称";
+    return "请输入创作空间名称";
   }
   if (name.length > PROJECT_NAME_MAX_LENGTH) {
-    return "项目名称不能超过 120 个字符";
+    return "创作空间名称不能超过 120 个字符";
   }
   return null;
 }
 
 export function roleLabel(role: ProjectRole): string {
   return role === "OWNER" ? "所有者" : "成员";
+}
+
+export function spaceLabel(project: { name: string; kind?: ProjectKind }): string {
+  return project.kind === "personal" ? "个人空间" : project.name;
 }
 
 export function formatUpdatedAt(value: string): string {

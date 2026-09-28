@@ -30,11 +30,11 @@ export function ProjectEntryPage() {
       return;
     }
     queryClient.removeQueries({ queryKey: ["projects", projectId] });
-    navigate("/projects", { replace: true });
+    navigate("/studio", { replace: true });
   }, [missing, navigate, projectId, queryClient]);
 
   if (!validId || missing) {
-    return <Navigate replace to="/projects" />;
+    return <Navigate replace to="/studio" />;
   }
 
   if (project.isSuccess) return <Workspace key={projectId} project={project.data} />;
@@ -46,14 +46,14 @@ export function ProjectEntryPage() {
         {project.isPending ? (
           <p className="flex items-center gap-2 text-muted" role="status">
             <LoaderCircle aria-hidden className="size-4 animate-spin" />
-            正在打开项目
+            正在打开创作空间
           </p>
         ) : null}
         {project.isError && !missing ? (
           <section className="flex flex-col items-start gap-4 rounded-[14px] border border-line bg-panel p-8" role="alert">
             <h1 className="flex items-center gap-2 text-lg font-semibold text-danger">
               <CircleAlert aria-hidden className="size-5" />
-              无法打开项目
+              无法打开创作空间
             </h1>
             <p className="text-muted">{userFacingMessage(project.error)}</p>
             <Button onClick={() => void project.refetch()} type="button" variant="outline">

@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, Layers3, LogOut, UserRound } from "lucide-react";
+import { ChevronRight, CircleAlert, Layers3, LogOut, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useMatch, useNavigate } from "react-router";
 
-import { Button } from "../../components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +26,28 @@ export function BrandLink() {
   );
 }
 
+export function AccountMark({ email, size = "md" }: { email: string; size?: "md" | "lg" }) {
+  const initial = email.trim().charAt(0).toUpperCase() || "?";
+  return (
+    <span
+      aria-hidden
+      className={
+        size === "lg"
+          ? "grid size-16 place-items-center rounded-full border border-line bg-canvas text-xl text-ink"
+          : "grid size-10 place-items-center rounded-full border border-line bg-canvas text-sm text-ink"
+      }
+    >
+      {initial}
+    </span>
+  );
+}
+
 export function AccountMenu() {
   const session = useSession();
+  const projectMatch = useMatch("/projects/:projectId/*");
+  const profileTo = projectMatch?.params.projectId
+    ? `/projects/${projectMatch.params.projectId}/profile`
+    : null;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +79,38 @@ export function AccountMenu() {
   return (
     <div className="flex flex-col items-end gap-2">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button aria-label="账户菜单" variant="outline">
-            <UserRound aria-hidden className="size-4" />
-            <span className="max-w-40 truncate">{session.data.email}</span>
-          </Button>
+        <DropdownMenuTrigger
+          aria-label="账户菜单"
+          className="grid size-10 cursor-pointer place-items-center rounded-full border border-line bg-panel text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          {session.data.email.trim().charAt(0).toUpperCase() || "?"}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-64">
+          {profileTo ? (
+            <DropdownMenuItem asChild className="h-auto items-center py-2">
+              <Link to={profileTo}>
+                <AccountMark email={session.data.email} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-ink">{session.data.email}</span>
+                  <span className="text-xs text-muted">个人主页</span>
+                </span>
+                <ChevronRight aria-hidden className="size-4 text-muted" />
+              </Link>
+            </DropdownMenuItem>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2">
+              <AccountMark email={session.data.email} />
+              <span className="min-w-0 truncate text-sm text-ink">{session.data.email}</span>
+            </div>
+          )}
+          {session.data.platform_admin ? (
+            <DropdownMenuItem asChild>
+              <Link to="/admin/models">
+                <SlidersHorizontal aria-hidden className="size-4" />
+                模型目录
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem
             disabled={logoutMutation.isPending}
             onSelect={() => void onLogout()}

@@ -2,7 +2,7 @@
 
 ## 1. 状态与适用范围
 
-本文规定目标实现，不代表当前已支持。当前仓库已有 FastAPI 健康检查、配置/异常/日志、数据库会话、身份会话与项目成员闭环，以及登录页和项目列表。没有 Worker、Outbox Dispatcher 或生产部署。对话、知识库、记忆、生成、资源业务和工作台尚未实现。
+本文规定目标实现，不代表当前已支持。当前仓库已有 FastAPI 健康检查、配置/异常/日志、数据库会话、身份会话与项目成员闭环，登录页、项目列表和工作台，模型目录的登记、停用和每项业务的模型指定，以及一次显式文本补全。文本补全由独立进程领取 PostgreSQL 中的 queued 记录，在事务外通过 OpenAI 兼容适配器调用；HTTP 请求不等待供应商。密钥和接口地址只在服务端 `MODEL_ENDPOINTS`。没有 Celery Worker、Outbox Dispatcher 或生产部署。图片生成由另一个独立进程领取 queued 记录，在事务外调用 OpenAI 兼容的 images 接口，并把图片字节写入私有对象存储。文生视频由单独进程领取 queued 记录，提交后按 next_poll_at 轮询，成片写入私有对象存储；提交结果不明时不得重发。登录后进入个人创作空间，不必先手动建项目。已有标准空间保持不变。对话持久化、知识库、记忆、图生视频、跨空间资产汇总和通用资源库尚未实现。管理页不能发起供应商调用。
 
 本轮代码已经实现身份与项目闭环。其余代码与目标规范不一致的部分列在第 6 节，不能把测试通过当作未列出的业务已经交付。
 
@@ -79,13 +79,13 @@ CI 分阶段启用 Ruff/pytest、后端类型检查（固定使用 mypy，接入
 
 ## 6. 当前代码与目标差距
 
-- `0001_baseline` 仍是空迁移。`0002_auth_and_projects` 创建 users、sessions、projects、project_members 和 outbox_events。其余业务表和 event_deliveries 尚未创建。
-- VideoProvider 目前只有状态查询接口，缺少 submit/cancel、能力与输出观察；真实接入前补齐，不可在 Service 直接调用 SDK 绕开。
+- `0001_baseline` 仍是空迁移。`0002_auth_and_projects` 创建 users、sessions、projects、project_members 和 outbox_events。`0003_model_configs` 增加 users.platform_admin、model_configs 和 model_config_audits。`0004_text_completions` 增加一次文本补全记录。`0005_image_generations` 增加生成任务和资产，`0006_model_assignments` 增加业务指定，`0007_video_generations` 为生成任务增加 image/video 种类并允许视频的 submitting 状态。`0008_personal_spaces` 为 projects 增加 kind，并用部分唯一索引保证每个创建者至多一个未删除的个人空间；不回填、不搬迁已有项目。event_deliveries 尚未创建。Celery 仍未接入。
+- 文生视频适配器会提交并轮询 DashScope 异步任务，成片写入对象存储。供应商取消接口未接入，因此 submitting 和 running 的取消返回 409，不进入 cancel_requested。
 - ParsedDocument 目前只有 text，必须扩展 blocks/locator 才能提供可核验引用。
 - 当前边界测试扫描整个非 DB infrastructure，会误禁合法 LangChain 适配器；实施 AI 接入时修正测试范围。
 - 身份和项目的外层 Service 已拥有并提交同一个 UoW，项目模块通过 auth Service 读取用户。Worker 工厂的完整生命周期仍未落实。
 - 校验错误不再回显原始输入。登录限流尚未接入；Redis 不可用时登录应返回 503，这项仍待实现。
-- 登录页和项目列表可由 Compose 中的前端开发服务器使用，并代理 `/api`。工作台及其他产品页面尚未实现。Worker、Outbox Dispatcher、RAG、记忆、业务 CI 和生产部署均待实施。项目删除已写入 `project.deleted.v1`，尚无消费者。
+- 登录页、项目列表、工作台和模型目录管理页可由前端开发服务器使用，并代理 `/api`。模型目录登记、停用配置，并为每项业务指定一个模型。文本补全和图片生成由独立进程领取 queued 记录后调用 OpenAI 兼容接口；图片字节进入私有对象存储。文生视频由 video-worker 领取，调用已指定的 text_to_video 适配器后把视频字节写入对象存储。Celery、图生视频、Outbox Dispatcher、RAG、记忆、业务 CI 和生产部署均待实施。项目删除已写入 `project.deleted.v1`，尚无消费者。
 
 未列入上面已实现范围的项目仍待后续阶段完成。
 

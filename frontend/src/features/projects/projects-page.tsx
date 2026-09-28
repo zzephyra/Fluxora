@@ -29,11 +29,11 @@ export function ProjectsPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] tracking-[2px] text-primary">WORKSPACE</p>
-            <h1 className="mt-3 text-[clamp(32px,4vw,48px)] font-medium tracking-[-1.5px]">项目</h1>
+            <h1 className="mt-3 text-[clamp(32px,4vw,48px)] font-medium tracking-[-1.5px]">创作空间</h1>
           </div>
           <Button className="h-[50px] px-6" onClick={() => setCreateOpen(true)} type="button">
             <Plus aria-hidden className="size-4" />
-            新建项目
+            新建创作空间
           </Button>
         </div>
         {projects.isPending ? <ProjectListSkeleton /> : null}
@@ -66,7 +66,7 @@ function ProjectListSkeleton() {
       </div>
       <p className="flex items-center gap-2 text-muted" role="status">
         <LoaderCircle aria-hidden className="size-4 animate-spin" />
-        正在加载项目
+        正在加载创作空间
       </p>
     </div>
   );
@@ -77,12 +77,12 @@ export function EmptyState({ onCreate }: { onCreate: () => void }) {
     <section className="flex flex-col items-start gap-4 rounded-[14px] border border-line bg-panel p-8">
       <h2 className="flex items-center gap-2 text-lg font-medium">
         <FolderOpen aria-hidden className="size-5 text-primary" />
-        还没有项目
+        还没有创作空间
       </h2>
-      <p className="text-muted">创建一个项目后，可以从这里进入。</p>
+      <p className="text-muted">新建一个创作空间后，可以从这里进入。个人空间会在登录后自动准备。</p>
       <Button onClick={onCreate} type="button">
         <Plus aria-hidden className="size-4" />
-        新建项目
+        新建创作空间
       </Button>
     </section>
   );
@@ -93,7 +93,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
     <section className="flex flex-col items-start gap-4 rounded-[14px] border border-line bg-panel p-8" role="alert">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-danger">
         <CircleAlert aria-hidden className="size-5" />
-        无法加载项目
+        无法加载创作空间
       </h2>
       <p className="text-muted">{message}</p>
       <Button onClick={onRetry} type="button" variant="outline">
@@ -123,7 +123,7 @@ function ProjectList({
               className="flex h-full flex-col gap-4 rounded-[14px] border border-line bg-panel p-5 transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               to={`/projects/${project.id}`}
             >
-              <span className="text-xl font-medium tracking-[-0.4px]">{project.name}</span>
+              <span className="text-xl font-medium tracking-[-0.4px]">{project.kind === "personal" ? "个人空间" : project.name}</span>
               <span className="flex items-center gap-2 text-xs text-muted">
                 {project.role === "OWNER" ? (
                   <Shield aria-hidden className="size-4" />

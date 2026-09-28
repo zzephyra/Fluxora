@@ -56,6 +56,10 @@ class VersionConflictError(ConflictError):
     code = "version_conflict"
 
 
+class CancellationUnsupportedError(ConflictError):
+    code = "cancellation_unsupported"
+
+
 class RateLimitError(ApplicationError):
     status_code = 429
     code = "rate_limit"

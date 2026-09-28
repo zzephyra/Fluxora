@@ -26,6 +26,7 @@ logger = get_logger(__name__)
 class UserView:
     id: UUID
     email: str
+    platform_admin: bool
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,7 @@ class Principal:
     user_id: UUID
     session_id: UUID
     email: str
+    platform_admin: bool
     csrf_token_hash: str
     expires_at: datetime
 
@@ -41,6 +43,7 @@ class Principal:
 class LoginResult:
     user_id: UUID
     email: str
+    platform_admin: bool
     session_token: str
     csrf_token: str
     expires_at: datetime
@@ -57,7 +60,14 @@ class AuthService:
         self.settings = settings
         self.repository = repository or AuthRepository()
 
-    async def create_user(self, uow: UnitOfWork, email: str, password: str) -> UserView:
+    async def create_user(
+        self,
+        uow: UnitOfWork,
+        email: str,
+        password: str,
+        *,
+        platform_admin: bool = False,
+    ) -> UserView:
         normalized = normalize_email(email)
         validate_password(password)
         existing = await self.repository.get_user_by_email(uow.session, normalized)
@@ -68,6 +78,7 @@ class AuthService:
             email_normalized=normalized,
             password_hash=hash_password(password),
             status=UserStatus.ACTIVE,
+            platform_admin=platform_admin,
         )
         await self.repository.add_user(uow.session, user)
         try:
@@ -76,8 +87,12 @@ class AuthService:
         except IntegrityError as exc:
             await uow.rollback()
             raise DomainError("Email is already registered") from exc
-        logger.info("user_created", user_id=str(user.id))
-        return UserView(id=user.id, email=user.email_normalized)
+        logger.info(
+            "user_created",
+            user_id=str(user.id),
+            platform_admin=user.platform_admin,
+        )
+        return _user_view(user)
 
     async def login(
         self,
@@ -124,6 +139,7 @@ class AuthService:
         return LoginResult(
             user_id=user.id,
             email=user.email_normalized,
+            platform_admin=user.platform_admin,
             session_token=session_token,
             csrf_token=csrf_token,
             expires_at=expires_at,
@@ -137,6 +153,7 @@ class AuthService:
             user_id=user.id,
             session_id=row.id,
             email=user.email_normalized,
+            platform_admin=user.platform_admin,
             csrf_token_hash=row.csrf_token_hash,
             expires_at=row.expires_at,
         )
@@ -176,7 +193,7 @@ class AuthService:
         user = await self.repository.get_user_by_id(uow.session, user_id)
         if user is None or user.status != UserStatus.ACTIVE:
             raise NotFoundError("User was not found")
-        return UserView(id=user.id, email=user.email_normalized)
+        return _user_view(user)
 
     async def get_users_by_ids(
         self,
@@ -184,7 +201,23 @@ class AuthService:
         user_ids: list[UUID],
     ) -> dict[UUID, UserView]:
         users = await self.repository.get_users_by_ids(uow.session, user_ids)
-        return {user.id: UserView(id=user.id, email=user.email_normalized) for user in users}
+        return {user.id: _user_view(user) for user in users}
+
+    async def grant_platform_admin(self, uow: UnitOfWork, email: str) -> UserView:
+        user = await self.repository.get_user_by_email(uow.session, normalize_email(email))
+        if user is None or user.status != UserStatus.ACTIVE:
+            raise NotFoundError("User was not found")
+        if not user.platform_admin:
+            user.platform_admin = True
+            user.updated_at = datetime.now(UTC)
+            await uow.session.flush()
+        await uow.commit()
+        logger.info("platform_admin_granted", user_id=str(user.id))
+        return _user_view(user)
+
+    async def is_platform_admin(self, uow: UnitOfWork, user_id: UUID) -> bool:
+        user = await self.repository.get_user_by_id(uow.session, user_id)
+        return user is not None and user.status == UserStatus.ACTIVE and user.platform_admin
 
     async def _live_session(
         self,
@@ -204,3 +237,11 @@ class AuthService:
 
     def _session_is_live(self, row: UserSession, now: datetime) -> bool:
         return row.revoked_at is None and row.expires_at > now
+
+
+def _user_view(user: User) -> UserView:
+    return UserView(
+        id=user.id,
+        email=user.email_normalized,
+        platform_admin=user.platform_admin,
+    )

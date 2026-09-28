@@ -1,11 +1,14 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router";
 
 import { LandingPage } from "./features/landing";
 import { LoginPage, RequireSession } from "./features/auth";
-import { ProjectEntryPage, ProjectsPage } from "./features/projects";
+import { AssignmentScreen, CatalogScreen, ModelAdminPage } from "./features/admin";
+import { ProjectEntryPage, ProjectsPage, StudioEntry } from "./features/projects";
 import { setUnauthorizedHandler } from "./lib/api";
+
+const VideoEditor = lazy(() => import("./features/video-editor/video-editor").then(module => ({ default: module.VideoEditor })));
 
 export function App() {
   const [queryClient] = useState(
@@ -23,8 +26,17 @@ export function App() {
       <BrowserRouter>
         <UnauthorizedRedirect />
         <Routes>
+          <Route path="/projects/:projectId/editor/:documentId" element={<RequireSession><Suspense fallback={<p role="status">正在加载编辑器…</p>}><VideoEditor /></Suspense></RequireSession>} />
           <Route element={<LandingPage />} path="/" />
           <Route element={<LoginPage />} path="/login" />
+          <Route
+            element={
+              <RequireSession>
+                <StudioEntry />
+              </RequireSession>
+            }
+            path="/studio"
+          />
           <Route
             element={
               <RequireSession>
@@ -41,7 +53,20 @@ export function App() {
             }
             path="/projects/:projectId/*"
           />
-          <Route element={<Navigate replace to="/projects" />} path="*" />
+          <Route
+            element={
+              <RequireSession>
+                <ModelAdminPage />
+              </RequireSession>
+            }
+            path="/admin"
+          >
+            <Route index element={<Navigate replace to="models" />} />
+            <Route element={<CatalogScreen />} path="models" />
+            <Route element={<Navigate replace to="/admin/models" />} path="register" />
+            <Route element={<AssignmentScreen />} path="assignments" />
+          </Route>
+          <Route element={<Navigate replace to="/studio" />} path="*" />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

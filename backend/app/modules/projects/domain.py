@@ -7,6 +7,7 @@ from uuid import UUID
 from app.core.errors import ValidationError
 
 PROJECT_NAME_MAX_LENGTH = 120
+PERSONAL_SPACE_NAME = "个人空间"
 DEFAULT_PAGE_LIMIT = 20
 MAX_PAGE_LIMIT = 100
 PROJECT_DELETED_EVENT = "project.deleted.v1"
@@ -16,6 +17,11 @@ PROJECT_DELETED_SCHEMA_VERSION = 1
 class ProjectRole(StrEnum):
     OWNER = "OWNER"
     MEMBER = "MEMBER"
+
+
+class ProjectKind(StrEnum):
+    PERSONAL = "personal"
+    STANDARD = "standard"
 
 
 @dataclass(frozen=True)

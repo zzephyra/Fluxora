@@ -11,7 +11,10 @@ function parseUser(value: unknown): UserIdentity | null {
   if (typeof value.id !== "string" || typeof value.email !== "string") {
     return null;
   }
-  return { id: value.id, email: value.email };
+  if (typeof value.platform_admin !== "boolean") {
+    return null;
+  }
+  return { id: value.id, email: value.email, platform_admin: value.platform_admin };
 }
 
 function invalidResponse(): ApiError {

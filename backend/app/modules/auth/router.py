@@ -63,13 +63,23 @@ async def login(
     remaining = max(0, int((result.expires_at - datetime.now(UTC)).total_seconds()))
     set_csrf_cookie(response, settings, result.csrf_token, remaining)
     no_store(response)
-    return LoginResponse(user=UserIdentity(id=result.user_id, email=result.email))
+    return LoginResponse(
+        user=UserIdentity(
+            id=result.user_id,
+            email=result.email,
+            platform_admin=result.platform_admin,
+        )
+    )
 
 
 @router.get("/auth/me", response_model=UserIdentity)
 async def me(response: Response, principal: PrincipalDep) -> UserIdentity:
     no_store(response)
-    return UserIdentity(id=principal.user_id, email=principal.email)
+    return UserIdentity(
+        id=principal.user_id,
+        email=principal.email,
+        platform_admin=principal.platform_admin,
+    )
 
 
 @router.post("/auth/logout", status_code=204)

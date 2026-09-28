@@ -145,7 +145,7 @@ docker compose up -d --build
 make up
 ```
 
-Compose 提供 PostgreSQL、Redis、Elasticsearch、MinIO、API 和前端开发服务器。开发启动会先执行 Alembic，创建用户、会话、项目成员和项目删除事件表。对话、知识库、记忆、生成和资源表仍未创建。Worker 不在 Compose 里。
+Compose 提供 PostgreSQL、Redis、Elasticsearch、MinIO、API、文本补全进程和前端开发服务器。开发启动会先执行 Alembic，创建用户、会话、项目成员、项目删除事件、模型目录、目录审计和一次文本补全记录。对话、知识库、记忆、视频生成和资源表仍未创建。文本补全进程只领取已排队的文本调用；Celery 仍未接入。平台管理员只能由管理员命令设置，例如 `python -m app.modules.auth.cli --grant-platform-admin --email someone@example.com`。`MODEL_SECRET_REFS` 只填写密钥名称。接口地址和密钥放在未提交的 `MODEL_ENDPOINTS`，不要写入仓库。
 
 ### 3. 只在宿主机启动 API
 

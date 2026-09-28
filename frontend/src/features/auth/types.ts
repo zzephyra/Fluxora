@@ -4,6 +4,7 @@ export const PASSWORD_MAX_LENGTH = 128;
 export type UserIdentity = {
   id: string;
   email: string;
+  platform_admin: boolean;
 };
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

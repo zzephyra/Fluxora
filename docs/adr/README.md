@@ -22,3 +22,8 @@
 | [015](015-marketing-landing.md) | 独立官网展示层与品牌主题 | Accepted |
 | [016](016-oauth-github-google.md) | GitHub 与 Google 登录 | Proposed |
 | [017](017-workspace-navigation.md) | 三入口项目工作区 | Accepted |
+| [018](018-model-admin-control.md) | 模型目录与平台管理员控制面 | Accepted |
+| [019](019-business-model-assignment.md) | 业务模型指定 | Accepted |
+| [020](020-text-to-video.md) | 文生视频接入 | Accepted |
+| [021](021-personal-creative-space.md) | 登录后进入个人创作空间 | Accepted |
+| [022](022-video-timeline-editor.md) | 项目内视频时间线编辑器 | Accepted |

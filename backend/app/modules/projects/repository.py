@@ -51,11 +51,31 @@ class ProjectRepository:
         )
         if cursor is not None:
             stmt = stmt.where(
-                tuple_(Project.created_at, Project.id)
-                < tuple_(cursor.created_at, cursor.entity_id)
+                tuple_(Project.created_at, Project.id) < tuple_(cursor.created_at, cursor.entity_id)
             )
         rows = (await session.execute(stmt)).all()
         return [(project, role) for project, role in rows]
+
+    async def get_personal_for_owner(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+    ) -> tuple[Project, ProjectMember] | None:
+        stmt = (
+            select(Project, ProjectMember)
+            .join(ProjectMember, ProjectMember.project_id == Project.id)
+            .where(
+                Project.created_by == user_id,
+                Project.kind == "personal",
+                Project.deleted_at.is_(None),
+                ProjectMember.user_id == user_id,
+            )
+        )
+        row = (await session.execute(stmt)).one_or_none()
+        if row is None:
+            return None
+        project, member = row
+        return project, member
 
     async def list_members(
         self,

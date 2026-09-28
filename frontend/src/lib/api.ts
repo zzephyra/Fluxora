@@ -64,11 +64,12 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
 
 export type ApiRequest = {
   path: string;
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
   csrf?: boolean;
   unauthorized?: "throw" | "redirect";
+  headers?: Record<string, string>;
 };
 
 export function readCookie(name: string): string | null {
@@ -134,6 +135,11 @@ async function perform(request: ApiRequest, allowCsrfFetch: boolean): Promise<un
   });
   if (request.body !== undefined) {
     headers.set("Content-Type", "application/json");
+  }
+  if (request.headers) {
+    for (const [name, value] of Object.entries(request.headers)) {
+      headers.set(name, value);
+    }
   }
   if (request.csrf) {
     let token = readCookie(CSRF_COOKIE_NAME);

@@ -4,7 +4,12 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.errors import ValidationError
-from app.modules.projects.domain import PROJECT_NAME_MAX_LENGTH, ProjectRole, normalize_project_name
+from app.modules.projects.domain import (
+    PROJECT_NAME_MAX_LENGTH,
+    ProjectKind,
+    ProjectRole,
+    normalize_project_name,
+)
 
 
 class _StrictRequest(BaseModel):
@@ -44,6 +49,7 @@ class ProjectResponse(BaseModel):
     id: UUID
     name: str
     role: ProjectRole
+    kind: ProjectKind = ProjectKind.STANDARD
     version: int
     created_at: datetime
     updated_at: datetime

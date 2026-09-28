@@ -34,6 +34,7 @@ class LoginRequest(_StrictRequest):
 class UserIdentity(BaseModel):
     id: UUID
     email: str
+    platform_admin: bool
 
 
 class LoginResponse(BaseModel):

@@ -37,6 +37,6 @@ describe("public landing experience", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("一只鲸鱼游过云层")).toBeInTheDocument();
     expect(within(dialog).getByText(/刷新后不会保存/)).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: /进入项目空间/ })).toHaveAttribute("href", "/projects");
+    expect(within(dialog).getByRole("link", { name: /进入创作空间/ })).toHaveAttribute("href", "/studio");
   });
 });

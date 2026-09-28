@@ -118,12 +118,12 @@ export function CreateProjectDialog({
             }
           }}
         >
-          <DialogTitle className="pr-10 text-lg font-semibold">新建项目</DialogTitle>
+          <DialogTitle className="pr-10 text-lg font-semibold">新建创作空间</DialogTitle>
           <DialogDescription className="mt-3 text-muted">
-            这会创建一个独立项目。资料、对话和记忆不会从其他项目带过来，创建后你是所有者。
+            用于品牌短片、连续故事或角色设定。资料、对话和记忆不会从其他创作空间带过来，创建后你是所有者。
           </DialogDescription>
           <form className="mt-6 flex flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
-            <Field error={nameError} id="project-name" label="项目名称">
+            <Field error={nameError} id="project-name" label="创作空间名称">
               <Input
                 aria-describedby={nameError ? fieldErrorId("project-name") : undefined}
                 aria-invalid={nameError ? true : undefined}
@@ -156,7 +156,7 @@ export function CreateProjectDialog({
       </Dialog>
       <AlertDialog onOpenChange={setConfirmDiscard} open={confirmDiscard}>
         <AlertDialogContent>
-          <AlertDialogTitle className="text-lg font-semibold">放弃未保存的项目名称？</AlertDialogTitle>
+          <AlertDialogTitle className="text-lg font-semibold">放弃未保存的创作空间名称？</AlertDialogTitle>
           <AlertDialogDescription className="mt-3 text-muted">
             关闭后需要重新输入。
           </AlertDialogDescription>

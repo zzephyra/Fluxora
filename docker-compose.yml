@@ -38,17 +38,30 @@ services:
       - "9001:9001"
 
   api:
+    image: fluxora-api
     build:
       context: ./backend
     environment:
       ENVIRONMENT: development
       DATABASE_URL: postgresql+asyncpg://fluxora:fluxora@postgres:5432/fluxora
       DATABASE_CONNECT_TIMEOUT_SECONDS: "5"
+      # Names only. Key values and base URLs come from the gitignored .env file.
+      MODEL_SECRET_REFS: qianwen,local_model_secret,wan_video
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: fluxora
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: fluxora
+      S3_SECRET_ACCESS_KEY: fluxora-local-secret
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+    extra_hosts:
+      - "minio:host-gateway"
     volumes:
       - ./backend:/app
     command:
@@ -67,6 +80,125 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
+
+  text-worker:
+    image: fluxora-api
+    build:
+      context: ./backend
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://fluxora:fluxora@postgres:5432/fluxora
+      DATABASE_CONNECT_TIMEOUT_SECONDS: "5"
+      MODEL_SECRET_REFS: qianwen,local_model_secret,wan_video
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command:
+      - python
+      - -m
+      - app.workers.text_completion
+    restart: unless-stopped
+
+  image-worker:
+    image: fluxora-api
+    build:
+      context: ./backend
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://fluxora:fluxora@postgres:5432/fluxora
+      DATABASE_CONNECT_TIMEOUT_SECONDS: "5"
+      MODEL_SECRET_REFS: qianwen,local_model_secret,wan_video
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: fluxora
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: fluxora
+      S3_SECRET_ACCESS_KEY: fluxora-local-secret
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      api:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    extra_hosts:
+      - "minio:host-gateway"
+    volumes:
+      - ./backend:/app
+    command:
+      - python
+      - -m
+      - app.workers.image_generation
+    restart: unless-stopped
+
+  video-worker:
+    image: fluxora-api
+    build:
+      context: ./backend
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://fluxora:fluxora@postgres:5432/fluxora
+      DATABASE_CONNECT_TIMEOUT_SECONDS: "5"
+      MODEL_SECRET_REFS: qianwen,local_model_secret,wan_video
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: fluxora
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: fluxora
+      S3_SECRET_ACCESS_KEY: fluxora-local-secret
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      api:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    extra_hosts:
+      - "minio:host-gateway"
+    volumes:
+      - ./backend:/app
+    command:
+      - python
+      - -m
+      - app.workers.video_generation
+    restart: unless-stopped
+
+  editor-worker:
+    image: fluxora-api
+    build:
+      context: ./backend
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://fluxora:fluxora@postgres:5432/fluxora
+      DATABASE_CONNECT_TIMEOUT_SECONDS: "5"
+      MODEL_SECRET_REFS: qianwen,local_model_secret,wan_video
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: fluxora
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: fluxora
+      S3_SECRET_ACCESS_KEY: fluxora-local-secret
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      api:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    extra_hosts:
+      - "minio:host-gateway"
+    volumes:
+      - ./backend:/app
+    command:
+      - python
+      - -m
+      - app.workers.editor_render
+    restart: unless-stopped
 
   frontend:
     build:

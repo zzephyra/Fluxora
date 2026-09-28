@@ -14,9 +14,9 @@
 
 | 所属模块 / 表 | 必需字段与约束 |
 | --- | --- |
-| auth.users | email_normalized UNIQUE、password_hash、status(active/disabled)；不存明文密码 |
+| auth.users | email_normalized UNIQUE、password_hash、status(active/disabled)、platform_admin；不存明文密码。platform_admin 默认 false，只由管理员命令写入，接口不能修改 |
 | auth.sessions | user_id、token_hash UNIQUE、csrf_token_hash、expires_at、revoked_at?；会话令牌只存哈希 |
-| projects.projects | name、created_by、deleted_at?、version |
+| projects.projects | name、kind(personal/standard)、created_by、deleted_at?、version。部分唯一索引保证每个 created_by 至多一个未删除的 personal 空间 |
 | projects.project_members | project_id、user_id、role(OWNER/MEMBER)；UNIQUE(project_id,user_id)，每项目恰有一个 OWNER，由事务维护；部分唯一索引确保至多一个 |
 | chat.conversations | project_id、title、created_by、deleted_at? |
 | chat.messages | project_id、conversation_id、sequence、role(user/assistant)、content、run_id?、completion_status(complete/partial)、deleted_at?；UNIQUE(conversation_id,sequence) |
@@ -28,11 +28,14 @@
 | knowledge.chunks | project_id、document_version_id、ordinal、text、token_count、locator、content_hash；UNIQUE(document_version_id,ordinal)，分块写入完成后不可原地改写 |
 | memory.memories | project_id、kind、current_revision_id、created_by、deleted_at?、version |
 | memory.memory_revisions | project_id、memory_id、revision_number、content、source_type(manual/message/document)、source_id?、source_version?、confirmed_by、confirmed_at、status(active/superseded/deleted)；UNIQUE(memory_id,revision_number)，每记忆最多一个 active |
-| generation.generation_tasks | project_id、actor_id、status、model_config_id、model_config_version、request_snapshot、retry_of_task_id?、provider_task_id?、provider、reconciliation_required、phase、progress?、next_poll_at?、error?、lease字段、started_at?、finished_at? |
+| generation.generation_tasks | project_id、actor_id、kind(image/video)、status、model_config_id、config_version、idempotency_key、request_hash、request_snapshot、provider_task_id?、provider、reconciliation_required、phase、progress?、next_poll_at?、error?、lease字段、started_at?、finished_at?。图片使用 queued/running/succeeded/failed/canceled。视频额外使用 submitting 与 cancel_requested；提交结果不明时保持 submitting 并标记 reconciliation_required，不得重发。UNIQUE(project_id,actor_id,idempotency_key) |
 | generation.generation_attempts | project_id、task_id、attempt_number、operation(submit/poll/cancel/store)、provider_request_key、outcome、error_type?、usage?、started_at、finished_at?；UNIQUE(task_id,attempt_number) |
 | assets.assets | project_id、kind(IMAGE/VIDEO/AUDIO/FILE)、object_key UNIQUE、sha256?、mime、size_bytes?、width?、height?、duration_ms?、status(uploading/ready/failed/deleted)、created_by、upload_expires_at?、deleted_at? |
 | generation.generation_outputs | project_id、task_id、asset_id、ordinal；UNIQUE(task_id,ordinal)，成功任务至少有一个 ready 输出 |
-| infrastructure.ai.model_configs | provider、model_name、capability、config_version、parameters_schema、limits、secret_ref、enabled；UNIQUE(provider,model_name,capability,config_version)，版本不可改写，只能停用 |
+| infrastructure.ai.model_configs | provider、model_name、capability、config_version、parameters_schema、limits、secret_ref、enabled；UNIQUE(provider,model_name,capability,config_version)，版本不可改写，只能停用。capability 为 text_generation、embedding、text_to_video、image_to_video、text_to_image、speech_synthesis、speech_recognition。列表有上限 |
+| infrastructure.ai.model_assignments | capability 主键、model_config_id、config_version、updated_by、updated_at。每项能力最多一个已启用且能力相同的模型。停用该配置时同一事务清除 |
+| infrastructure.ai.model_config_audits | actor_id、model_config_id、config_version、action(created/disabled/assigned/unassigned)、created_at；与配置变更同一事务，不记录密钥或 secret_ref |
+| infrastructure.ai.text_completions | project_id、actor_id、model_config_id、config_version、prompt(1–10000)、status(queued/running/succeeded/failed/canceled)、content?、error_code?、error_message?。一次显式文本调用，不是对话消息。供应商调用不得包在写入事务内 |
 | infrastructure.outbox.outbox_events | event_id、project_id?、aggregate_type、aggregate_id、aggregate_version、event_type、schema_version、payload、created_at；事件事实不可变 |
 | infrastructure.outbox.event_deliveries | event_id、consumer、target_generation、status、attempt_count、next_attempt_at、lease字段、last_error?、completed_at?；UNIQUE(event_id,consumer,target_generation) |
 | infrastructure.db.request_idempotency | project_id、actor_id、operation、idempotency_key、request_hash、resource_id、response_status、created_at；四字段 UNIQUE(project_id,actor_id,operation,idempotency_key) |

@@ -1,7 +1,10 @@
+import json
+import re
 from functools import lru_cache
 from typing import Literal, Self
+from urllib.parse import urlsplit
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 EnvironmentName = Literal["development", "testing", "staging", "production"]
@@ -12,6 +15,14 @@ LOCAL_DEV_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+SECRET_REF_NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+
+class ModelEndpoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    base_url: str
+    api_key: str
 
 
 class Settings(BaseSettings):
@@ -34,6 +45,16 @@ class Settings(BaseSettings):
     session_cookie_name: str = "fluxora_session"
     csrf_cookie_name: str = "fluxora_csrf"
     cors_allowed_origins: list[str] = Field(default_factory=list)
+    # Comma-separated names of configured secrets. Values are never stored here.
+    model_secret_refs: str = ""
+    # JSON object: {"name": {"base_url": "https://...", "api_key": "..."}}
+    model_endpoints: str = Field(default="", repr=False)
+    s3_endpoint_url: str = ""
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = Field(default="", repr=False)
+    _parsed_endpoints: dict[str, ModelEndpoint] = PrivateAttr(default_factory=dict)
 
     @property
     def is_testing(self) -> bool:
@@ -58,9 +79,70 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "csrf_secret must be a non-default value of at least 32 characters"
                 )
+        for name in (part.strip() for part in self.model_secret_refs.split(",")):
+            if name and SECRET_REF_NAME.fullmatch(name) is None:
+                raise ValueError("model_secret_refs contains an invalid name")
+        self._parsed_endpoints = _parse_model_endpoints(self.model_endpoints)
+        allowed = {part.strip() for part in self.model_secret_refs.split(",") if part.strip()}
+        unknown = set(self._parsed_endpoints).difference(allowed)
+        if unknown:
+            raise ValueError("model endpoint name is not listed in model_secret_refs")
         return self
+
+    @property
+    def object_storage_configured(self) -> bool:
+        return bool(
+            self.s3_endpoint_url.strip()
+            and self.s3_bucket.strip()
+            and self.s3_access_key_id.strip()
+            and self.s3_secret_access_key.strip()
+        )
+
+    def model_endpoint(self, secret_ref: str) -> tuple[str, str] | None:
+        endpoint = self._parsed_endpoints.get(secret_ref)
+        if endpoint is None:
+            return None
+        return endpoint.base_url, endpoint.api_key
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def _parse_model_endpoints(raw: str) -> dict[str, ModelEndpoint]:
+    if not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        raise ValueError("model_endpoints must be a JSON object") from None
+    if not isinstance(parsed, dict):
+        raise ValueError("model_endpoints must be a JSON object")
+    endpoints: dict[str, ModelEndpoint] = {}
+    for name, value in parsed.items():
+        if not isinstance(name, str) or SECRET_REF_NAME.fullmatch(name) is None:
+            raise ValueError("model endpoint name is invalid")
+        if not isinstance(value, dict):
+            raise ValueError("model endpoint must include base_url and api_key")
+        try:
+            endpoint = ModelEndpoint.model_validate(value)
+        except ValueError:
+            raise ValueError("model endpoint must include base_url and api_key") from None
+        _validate_base_url(endpoint.base_url)
+        if not endpoint.api_key.strip():
+            raise ValueError("model endpoint api key is missing")
+        endpoints[name] = endpoint
+    return endpoints
+
+
+def _validate_base_url(value: str) -> None:
+    parts = urlsplit(value.strip())
+    if (
+        parts.scheme != "https"
+        or not parts.hostname
+        or parts.username
+        or parts.password
+        or parts.fragment
+    ):
+        raise ValueError("model endpoint base_url must be an https URL without credentials")

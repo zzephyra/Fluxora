@@ -4,15 +4,23 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.exc import IntegrityError
 
-from app.core.errors import AuthorizationError, DomainError, NotFoundError, VersionConflictError
+from app.core.errors import (
+    AuthorizationError,
+    ConflictError,
+    DomainError,
+    NotFoundError,
+    VersionConflictError,
+)
 from app.core.logging import get_logger
 from app.infrastructure.db.session import UnitOfWork
 from app.infrastructure.outbox.models import OutboxEvent
 from app.infrastructure.outbox.repository import OutboxRepository
 from app.modules.auth.service import AuthService
 from app.modules.projects.domain import (
+    PERSONAL_SPACE_NAME,
     PROJECT_DELETED_EVENT,
     PROJECT_DELETED_SCHEMA_VERSION,
+    ProjectKind,
     ProjectRole,
     decode_cursor,
     encode_cursor,
@@ -30,6 +38,7 @@ class ProjectView:
     id: UUID
     name: str
     role: str
+    kind: str
     version: int
     created_at: datetime
     updated_at: datetime
@@ -69,6 +78,7 @@ class ProjectService:
         project = Project(
             id=uuid4(),
             name=normalize_project_name(name),
+            kind=ProjectKind.STANDARD,
             created_by=actor_id,
             version=1,
         )
@@ -84,6 +94,42 @@ class ProjectService:
         await uow.session.refresh(project)
         await uow.commit()
         logger.info("project_created", project_id=str(project.id), user_id=str(actor_id))
+        return _project_view(project, member.role)
+
+    async def ensure_personal_space(self, uow: UnitOfWork, actor_id: UUID) -> ProjectView:
+        for _ in range(2):
+            existing = await self.repository.get_personal_for_owner(uow.session, actor_id)
+            if existing is not None:
+                project, member = existing
+                return _project_view(project, member.role)
+            project = Project(
+                id=uuid4(),
+                name=PERSONAL_SPACE_NAME,
+                kind=ProjectKind.PERSONAL,
+                created_by=actor_id,
+                version=1,
+            )
+            member = ProjectMember(
+                id=uuid4(),
+                project_id=project.id,
+                user_id=actor_id,
+                role=ProjectRole.OWNER,
+            )
+            await self.repository.add_project(uow.session, project)
+            await self.repository.add_member(uow.session, member)
+            try:
+                await uow.session.flush()
+                await uow.session.refresh(project)
+                await uow.commit()
+            except IntegrityError:
+                await uow.rollback()
+                continue
+            logger.info("personal_space_created", project_id=str(project.id), user_id=str(actor_id))
+            return _project_view(project, member.role)
+        existing = await self.repository.get_personal_for_owner(uow.session, actor_id)
+        if existing is None:
+            raise ConflictError("Personal space could not be created")
+        project, member = existing
         return _project_view(project, member.role)
 
     async def list_projects(
@@ -302,6 +348,7 @@ def _project_view(project: Project, role: str) -> ProjectView:
         id=project.id,
         name=project.name,
         role=role,
+        kind=project.kind,
         version=project.version,
         created_at=project.created_at,
         updated_at=project.updated_at,

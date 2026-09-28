@@ -12,10 +12,23 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("char_length(name) BETWEEN 1 AND 120", name="ck_projects_name_length"),
         CheckConstraint("version >= 1", name="ck_projects_version"),
+        CheckConstraint("kind IN ('personal', 'standard')", name="ck_projects_kind"),
         Index("ix_projects_created_at_id", "created_at", "id"),
+        Index(
+            "uq_projects_one_active_personal",
+            "created_by",
+            unique=True,
+            postgresql_where=text("kind = 'personal' AND deleted_at IS NULL"),
+        ),
     )
 
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    kind: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="standard",
+        server_default="standard",
+    )
     created_by: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,

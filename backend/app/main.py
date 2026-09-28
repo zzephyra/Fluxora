@@ -1,11 +1,15 @@
+from app.modules.editor.router import router as editor_router
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.exception_handlers import register_exception_handlers
+from app.api.generation import router as generation_router
 from app.api.health import router as health_router
 from app.api.middleware import RequestContextMiddleware
+from app.api.model_configs import router as model_configs_router
+from app.api.text_completions import router as text_completions_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
 from app.infrastructure.db.session import create_db_engine, create_session_factory
@@ -39,12 +43,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=resolved_settings.cors_allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-CSRF-Token", "X-Request-ID", "X-Trace-ID"],
+        allow_headers=[
+            "Content-Type",
+            "X-CSRF-Token",
+            "X-Request-ID",
+            "X-Trace-ID",
+            "Idempotency-Key",
+        ],
     )
     register_exception_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(projects_router)
+    app.include_router(model_configs_router)
+    app.include_router(text_completions_router)
+    app.include_router(generation_router)
+    app.include_router(editor_router)
     return app
 
 

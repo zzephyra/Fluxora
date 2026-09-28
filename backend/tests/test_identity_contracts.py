@@ -22,6 +22,7 @@ def test_openapi_lists_identity_and_project_routes() -> None:
         "/api/v1/auth/me",
         "/api/v1/auth/logout",
         "/api/v1/projects",
+        "/api/v1/projects/personal",
         "/api/v1/projects/{project_id}",
         "/api/v1/projects/{project_id}/members",
         "/api/v1/projects/{project_id}/members/{user_id}",

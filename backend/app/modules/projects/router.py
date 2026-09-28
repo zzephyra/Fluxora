@@ -50,6 +50,16 @@ async def create_project(
     return _project_response(project)
 
 
+@router.post("/projects/personal", response_model=ProjectResponse)
+async def ensure_personal_space(
+    uow: UowDep,
+    principal: MutationDep,
+    service: ProjectServiceDep,
+) -> ProjectResponse:
+    project = await service.ensure_personal_space(uow, principal.user_id)
+    return _project_response(project)
+
+
 @router.get("/projects/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: UUID,
@@ -138,6 +148,7 @@ def _project_response(project: ProjectView) -> ProjectResponse:
         id=project.id,
         name=project.name,
         role=project.role,
+        kind=project.kind,
         version=project.version,
         created_at=project.created_at,
         updated_at=project.updated_at,

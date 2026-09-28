@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -20,6 +20,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     email_normalized: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
+    platform_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
 
 
 class UserSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):

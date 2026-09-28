@@ -112,7 +112,7 @@ export function LandingPage() {
         <nav className={menuOpen ? "nav-links is-open" : "nav-links"} aria-label="官网导航">
           <a href="#explore" onClick={jump}>灵感画廊</a><a href="#workflow" onClick={jump}>创作方式</a><a href="#memory" onClick={jump}>项目记忆</a><a href="#faq" onClick={jump}>常见问题</a>
         </nav>
-        <div className="nav-actions"><Link className="login-link" to="/login">登录</Link><Button asChild className="land-button lime small"><Link to="/projects">进入工作台 <ArrowUpRight size={15} /></Link></Button><Button className="menu-toggle" variant="ghost" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</Button></div>
+        <div className="nav-actions"><Link className="login-link" to="/login">登录</Link><Button asChild className="land-button lime small"><Link to="/studio">进入工作台 <ArrowUpRight size={15} /></Link></Button><Button className="menu-toggle" variant="ghost" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</Button></div>
       </header>
 
       <main id="main">
@@ -126,7 +126,7 @@ export function LandingPage() {
             <div className="eyebrow"><span className="tiny-line" /> A NEW SPACE FOR YOUR IMAGINATION</div>
             <h1>让想象，<br />有迹<span className="serif-word">可循。</span><span className="title-star">✳</span></h1>
             <p>从一个念头，到一个世界。<br />让资料、对话与记忆，成为你的下一帧。</p>
-            <div className="hero-ctas"><Button asChild className="land-button lime"><Link to="/projects">开启你的创作 <ArrowUpRight size={18} /></Link></Button><a className="quiet-link" href="#explore">寻找一点灵感 <ArrowRight size={17} /></a></div>
+            <div className="hero-ctas"><Button asChild className="land-button lime"><Link to="/studio">开启你的创作 <ArrowUpRight size={18} /></Link></Button><a className="quiet-link" href="#explore">寻找一点灵感 <ArrowRight size={17} /></a></div>
           </div>
           <div className="hero-bottom"><a href="#explore" className="scroll-cue"><ArrowDown size={16} /> 向下探索</a><div className="frame-caption"><span>001 — BEYOND THE HORIZON</span><small>FLUXORA ORIGINAL CONCEPT / AI 概念图</small></div><span className="frame-counter"><span>SCENE</span> 01</span></div>
         </section>
@@ -153,7 +153,7 @@ export function LandingPage() {
       <footer className="land-footer"><div className="footer-top"><Link className="land-logo" to="/"><Layers3 size={25} /> fluxora</Link><span>From context to cinema.</span><a href="#main">回到顶部 ↑</a></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Fluxora</span><span>为还没出现的画面，留一个位置。</span><Link to="/login">进入项目空间 <ArrowUpRight size={14} /></Link></div></footer>
 
       <Dialog open={selected !== null} onOpenChange={open => { if (!open) setSelected(null); }}><DialogContent className="land-modal">{selected && <><img className="modal-image" src={selected.image} alt={selected.title} /><div className="modal-copy"><span className="eyebrow muted">{selected.category} / 概念参考</span><DialogTitle className="modal-title">{selected.title}</DialogTitle><DialogDescription className="modal-description">探索画面的情绪、构图与提示词。此素材不是实时生成结果。</DialogDescription><div className="modal-palette">{selected.palette} <span>{selected.ratio}</span></div><p className="prompt-text">{selected.prompt}</p><Button className="land-button lime" onClick={copyPrompt}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? "提示词已复制" : "复制创作提示词"}</Button><span role="status" className="copy-status">{copyError ? "复制未成功，请手动选择上方提示词。" : copied ? "可以粘贴到你的项目中继续创作。" : ""}</span></div></>}</DialogContent></Dialog>
-      <Dialog open={draftOpen} onOpenChange={setDraftOpen}><DialogContent className="land-modal draft-modal"><div className="modal-copy"><span className="eyebrow muted">YOUR NEXT FRAME</span><DialogTitle className="modal-title">先留住这个想法。</DialogTitle><DialogDescription className="modal-description">这是本次页面中的临时草稿，刷新后不会保存，也没有提交生成任务。</DialogDescription><p className="prompt-text">{draft}</p><Button asChild className="land-button lime"><Link to="/projects">进入项目空间 <ArrowUpRight size={16} /></Link></Button></div></DialogContent></Dialog>
+      <Dialog open={draftOpen} onOpenChange={setDraftOpen}><DialogContent className="land-modal draft-modal"><div className="modal-copy"><span className="eyebrow muted">YOUR NEXT FRAME</span><DialogTitle className="modal-title">先留住这个想法。</DialogTitle><DialogDescription className="modal-description">这是本次页面中的临时草稿，刷新后不会保存，也没有提交生成任务。</DialogDescription><p className="prompt-text">{draft}</p><Button asChild className="land-button lime"><Link to="/studio">进入创作空间 <ArrowUpRight size={16} /></Link></Button></div></DialogContent></Dialog>
     </div>
   );
 }

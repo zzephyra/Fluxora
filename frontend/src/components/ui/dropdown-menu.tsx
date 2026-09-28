@@ -32,7 +32,7 @@ export function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-60",
+        "flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-transparent px-3 text-ink outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-60 data-[highlighted]:bg-canvas",
         className,
       )}
       {...props}

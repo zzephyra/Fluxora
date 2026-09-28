@@ -15,8 +15,7 @@ class RequestContextMiddleware:
             return
 
         headers = {
-            key.decode("latin1").lower(): value.decode("latin1")
-            for key, value in scope["headers"]
+            key.decode("latin1").lower(): value.decode("latin1") for key, value in scope["headers"]
         }
         request_id = headers.get("x-request-id") or str(uuid4())
         trace_id = headers.get("x-trace-id") or request_id

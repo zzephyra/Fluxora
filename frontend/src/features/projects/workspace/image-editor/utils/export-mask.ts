@@ -1,0 +1,50 @@
+import type { Stroke } from "../types";
+
+function trace(context: CanvasRenderingContext2D, stroke: Stroke) {
+  const [startX, startY] = stroke.points;
+  if (startX === undefined || startY === undefined) {
+    return;
+  }
+  context.beginPath();
+  context.moveTo(startX, startY);
+  for (let index = 2; index < stroke.points.length; index += 2) {
+    context.lineTo(stroke.points[index] ?? startX, stroke.points[index + 1] ?? startY);
+  }
+  context.lineWidth = stroke.width;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.stroke();
+}
+
+export function renderMask(width: number, height: number, strokes: Stroke[]): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width));
+  canvas.height = Math.max(1, Math.round(height));
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+  context.fillStyle = "#000";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  for (const stroke of strokes) {
+    context.save();
+    context.globalCompositeOperation = stroke.mode === "remove" ? "destination-out" : "source-over";
+    context.strokeStyle = "#fff";
+    trace(context, stroke);
+    context.restore();
+  }
+  return canvas;
+}
+
+export function exportMask(width: number, height: number, strokes: Stroke[]): Promise<Blob> {
+  const canvas = renderMask(width, height, strokes);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("蒙版导出失败"));
+        return;
+      }
+      resolve(blob);
+    }, "image/png");
+  });
+}

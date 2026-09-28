@@ -14,7 +14,9 @@ Fluxora 是按项目组织的视频生成平台。用户在项目内上传资料
 
 首期包括：登录、项目与成员、项目内对话、知识库与 RAG、项目记忆、视频生成、资源和生成记录。
 
-首期不包括：时间线剪辑、多智能体自治、模型训练、支付和 Credits 账本。订单、计费及 Credits 如后续引入，仍必须遵守本文数据约束。
+首期增加项目内单视频轨道非破坏性剪辑、工程保存与异步 FFmpeg 导出，见 [ADR-022](docs/adr/022-video-timeline-editor.md)。
+
+首期不包括：多智能体自治、模型训练、支付和 Credits 账本。订单、计费及 Credits 如后续引入，仍必须遵守本文数据约束。
 
 项目是数据、检索和记忆的隔离边界。默认不支持跨项目共享，也不支持全局用户记忆。
 
@@ -50,7 +52,9 @@ LLM 可以提出生成方案，但不能绕过用户提交、权限、参数校�
 | AI 文本实现 | LangChain | 只存在于文本适配器 |
 | 工具 | uv、pnpm、Ruff、ESLint、Prettier | 不混用包管理器 |
 
-首期不引入 Zustand、React Hook Form、Zod、LangGraph、第二套向量数据库或 Celery result backend。出现具体需求时再评估。
+视频编辑器允许 Remotion / Remotion Player、dnd-kit 及仅作用于编辑会话的 Zustand；服务端任务状态仍由 TanStack Query 管理。
+
+首期不引入 React Hook Form、Zod、LangGraph、第二套向量数据库或 Celery result backend。出现具体需求时再评估。
 
 版本在初始化时锁定到 `uv.lock` 和 `pnpm-lock.yaml`。不得增加第二套 ORM、任务队列、UI 系统或向量数据库。新增运行时依赖需说明现有工具无法满足的具体需求。
 
@@ -151,13 +155,13 @@ frontend/src/
 - 服务端状态 MUST 由 TanStack Query 管理。
 - 客户端交互状态 SHOULD 留在组件 state。首期 MUST NOT 引入全局 store 来复制任务状态。
 - API 类型 MUST 从 OpenAPI 生成。禁止另写一套可能漂移的类型。
-- 缓存键 MUST 包含 `project_id`。切换项目时 MUST 取消旧请求和旧事件流，禁止旧响应写入当前项目页面。
+- 缓存键 MUST 包含 `project_id`。切换创作空间时 MUST 取消旧请求和旧事件流，禁止旧响应写入当前空间。个人空间的获取缓存按登录身份隔离。以后的跨空间汇总缓存必须包含登录身份和筛选条件，退出登录时清理。
 - 颜色、字体、间距 MUST 使用统一 token。MUST 复用 `components/ui`，禁止每个页面重建按钮、弹窗、表格或引入另一套样式方案。
 - 每个异步界面 MUST 有 loading、empty、error、success。长任务展示服务端真实状态、失败原因和允许的操作，不伪造进度。
 - 提交按钮可以防重复点击，最终去重 MUST 由后端幂等保证。服务端确认前不得显示生成成功。
 - 默认桌面优先并支持窄屏。交互元素 MUST 提供可访问名称、键盘操作和明显的焦点状态。
 
-基础页面：项目列表、项目工作台、对话、知识库、记忆、生成记录、资源库、项目设置。
+基础页面：登录后的个人创作空间、创作空间管理、工作台、对话、知识库、记忆、生成记录、资源库、空间设置。前台称创作空间，底层仍是 Project。详见 [ADR-021](docs/adr/021-personal-creative-space.md)。
 
 ## 7. Module Boundaries
 
@@ -170,6 +174,7 @@ frontend/src/
 | memory | 已确认的项目记忆 | 自动把对话变成记忆 |
 | generation | 生成任务、尝试、幂等键 | 媒体字节 |
 | assets | 资源元数据和签名访问 | 业务状态机 |
+| editor | 编辑工程、不可变渲染快照、异步导出任务 | 供应商生成、其他模块的表 |
 
 Search、Storage、Model Gateway、Outbox 属于 `backend/app/infrastructure/`，不是业务模块。
 
@@ -298,7 +303,7 @@ Business Service
 
 业务代码 MUST NOT 知道具体 SDK。能力至少区分 `text_generation`、`embedding`、`text_to_video`、`image_to_video`。不得为了统一接口抹平供应商差异。
 
-模型配置由后端能力接口提供。前端 MUST NOT 猜测供应商参数。
+每项业务由平台管理员指定一个已登记且能力匹配的模型。前端展示这个模型，不能改选，也不能在请求里提交模型 ID。前端 MUST NOT 猜测供应商参数。详见 [ADR-019](docs/adr/019-business-model-assignment.md)。
 
 供应商的 429、5xx、超时、网络错误和内部错误 MUST 被分类。结果不明时先查询，禁止盲目再次提交付费请求。
 
@@ -328,7 +333,7 @@ MUST NOT 把普通业务、权限、Outbox、视频轮询或取消包装成 Chai
 
 Gateway MUST 是所有模型调用的唯一出口，包括 LLM、Embedding 和视频生成。
 
-PostgreSQL 中的 `model_configs` 保存服务端允许的模型、能力、参数限制和密钥引用。密钥明文 MUST 只存在于服务端配置，接口 MUST NOT 返回明文。
+PostgreSQL 中的 `model_configs` 保存服务端允许的模型、能力、参数限制和密钥引用。密钥明文 MUST 只存在于服务端配置，接口 MUST NOT 返回明文。目录写入只允许平台管理员，成员只能读取已启用配置且响应不含 secret_ref。管理页 MUST NOT 发起供应商调用。文本补全和图片生成都由独立进程在数据库事务外调用 OpenAI 兼容适配器；图片字节写入私有对象存储，接口地址和密钥只来自服务端配置。文生视频由独立进程领取 queued 记录，在事务外调用已指定的 text_to_video 适配器，成片写入私有对象存储；提交结果不明时保持 submitting 且不得重发。图生视频仍未接入。
 
 Generation Service MUST NOT 直接依赖 Polling 或 Webhook。它只消费 Provider 返回的远程观察结果。
 
@@ -360,7 +365,7 @@ queued → running → succeeded | failed | canceled
 
 视频生成链路：
 
-1. 前端提交显式确认后的 prompt、模型配置 ID、结构化参数及参考资源 ID，并发送 `Idempotency-Key`。
+1. 前端提交显式确认后的 prompt、结构化参数及参考资源 ID，并发送 `Idempotency-Key`。服务端解析该项业务当前指定的模型；任务保存模型配置 ID 和版本快照。客户端不提交模型 ID。
 2. Service 校验成员权限、项目资源归属、模型能力和参数；如启用额度，在同一 PostgreSQL 事务中预留额度。
 3. PostgreSQL 保存任务、不可变请求快照与 Outbox 事件，返回 202 和 `task_id`。
 4. Worker 领取任务，调用视频供应商适配器；提交成功后保存 `provider_task_id`，通过 Provider 返回的远程观察结果获取进展。
@@ -500,6 +505,8 @@ CORS MUST 使用明确白名单。禁止携带凭据并反射任意 Origin。
 
 - OWNER：管理项目及其成员。
 - MEMBER：在项目内编辑内容并提交生成。
+
+平台管理员不是项目角色。`users.platform_admin` 只由管理员命令设置，默认 false，接口不能修改。它只授权全局模型目录和业务模型指定，不授予项目内容权限。非管理员访问管理接口返回 404。详见 [ADR-018](docs/adr/018-model-admin-control.md) 与 [ADR-019](docs/adr/019-business-model-assignment.md)。
 
 MUST NOT 在首期实现 Role、Permission、Resource、Policy 组成的 RBAC。数据模型 SHOULD 把角色存成可扩展字段，而不是把权限判断写死在多个布尔列上。ADMIN、EDITOR、VIEWER 和细粒度权限以后必须通过新的 ADR 引入。
 

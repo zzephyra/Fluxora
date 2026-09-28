@@ -36,7 +36,7 @@ function renderLogin() {
       <MemoryRouter initialEntries={["/login"]}>
         <Routes>
           <Route element={<LoginPage />} path="/login" />
-          <Route element={<h1>项目</h1>} path="/projects" />
+          <Route element={<h1>工作台</h1>} path="/studio" />
         </Routes>
       </MemoryRouter>
     </Page>,
@@ -88,8 +88,12 @@ describe("LoginPage", () => {
     expect(input).toHaveAttribute("type", "password");
   });
 
-  it("opens the project list after login", async () => {
-    vi.mocked(login).mockResolvedValue({ id: "user-1", email: "owner@example.com" });
+  it("opens the workspace after login", async () => {
+    vi.mocked(login).mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      platform_admin: false,
+    });
     const user = userEvent.setup();
     renderLogin();
 
@@ -97,6 +101,6 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText("密码"), "correct-horse");
     await user.click(screen.getByRole("button", { name: "登录" }));
 
-    expect(await screen.findByRole("heading", { name: "项目" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "工作台" })).toBeInTheDocument();
   });
 });

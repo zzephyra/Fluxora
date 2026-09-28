@@ -339,6 +339,57 @@ def test_cli_creates_a_user_without_echoing_the_password(api, monkeypatch, capsy
     assert logged_in.status_code == 200
 
 
+def test_personal_space_is_created_once_and_leaves_existing_projects(api) -> None:
+    client, settings = api
+    owner = asyncio.run(_create_user(settings, "personal-owner@example.com", PASSWORD))
+    _login(client, settings, owner.email, PASSWORD)
+    headers = _mutation_headers(client, settings)
+    named = client.post("/api/v1/projects", json={"name": "品牌短片"}, headers=headers)
+    assert named.status_code == 201
+    assert named.json()["kind"] == "standard"
+
+    first, second = asyncio.run(_ensure_twice(settings, owner.id))
+    assert first.id == second.id
+    assert first.name == "个人空间"
+    assert first.kind == "personal"
+    assert first.id != UUID(named.json()["id"])
+
+    again = client.post("/api/v1/projects/personal", headers=headers)
+    assert again.status_code == 200
+    assert again.json()["id"] == str(first.id)
+    listed = {item["id"] for item in client.get("/api/v1/projects").json()["items"]}
+    assert str(first.id) in listed
+    assert named.json()["id"] in listed
+
+    removed = client.delete(f"/api/v1/projects/{first.id}", headers=headers)
+    assert removed.status_code == 204
+    replacement = client.post("/api/v1/projects/personal", headers=headers)
+    assert replacement.status_code == 200
+    assert replacement.json()["id"] != str(first.id)
+    assert replacement.json()["name"] == "个人空间"
+    assert client.get(f"/api/v1/projects/{first.id}").status_code == 404
+    kept = {item["id"] for item in client.get("/api/v1/projects").json()["items"]}
+    assert named.json()["id"] in kept
+    assert replacement.json()["id"] in kept
+
+
+async def _ensure_twice(settings: Settings, user_id: UUID):
+    return await asyncio.gather(_ensure_one(settings, user_id), _ensure_one(settings, user_id))
+
+
+async def _ensure_one(settings: Settings, user_id: UUID):
+    from app.modules.projects.service import ProjectService
+
+    engine = create_db_engine(settings)
+    factory = create_session_factory(engine)
+    service = ProjectService(AuthService(settings))
+    try:
+        async with factory() as session:
+            return await service.ensure_personal_space(UnitOfWork(session), user_id)
+    finally:
+        await engine.dispose()
+
+
 def _login(
     client: TestClient,
     settings: Settings,
@@ -412,9 +463,7 @@ def _install(
 
 def _retain_auth_cookies(client: TestClient, settings: Settings, response) -> None:
     names = {settings.session_cookie_name, settings.csrf_cookie_name}
-    retained = {
-        cookie.name: cookie.value for cookie in client.cookies.jar if cookie.name in names
-    }
+    retained = {cookie.name: cookie.value for cookie in client.cookies.jar if cookie.name in names}
     for cookie in response.cookies.jar:
         if cookie.name in names:
             retained[cookie.name] = cookie.value
@@ -455,7 +504,10 @@ async def _truncate(database_url: str) -> None:
         async with engine.begin() as connection:
             await connection.execute(
                 text(
-                    "TRUNCATE outbox_events, project_members, projects, sessions, users "
+                    "TRUNCATE generation_outputs, generation_tasks, assets, text_completions, "
+                    "model_assignments, "
+                    "model_config_audits, model_configs, outbox_events, "
+                    "project_members, projects, sessions, users "
                     "RESTART IDENTITY CASCADE"
                 )
             )

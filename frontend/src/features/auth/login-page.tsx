@@ -37,7 +37,7 @@ export function LoginPage() {
     );
   }
   if (session.isSuccess) {
-    return <Navigate replace to="/projects" />;
+    return <Navigate replace to="/studio" />;
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -53,7 +53,7 @@ export function LoginPage() {
     try {
       const user = await loginMutation.mutateAsync({ email, password });
       queryClient.setQueryData(sessionQueryKey, user);
-      navigate("/projects", { replace: true });
+      navigate("/studio", { replace: true });
     } catch (error) {
       if (isAbortError(error)) {
         return;

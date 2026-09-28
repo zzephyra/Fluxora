@@ -7,9 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../lib/api";
 import { getMe } from "../auth/api";
 import { RequireSession } from "../auth";
-import { createProject, getProject, listProjects } from "./api";
+import { createProject, ensurePersonalSpace, getProject, listProjects } from "./api";
 import { ProjectEntryPage } from "./project-entry-page";
 import { ProjectsPage } from "./projects-page";
+import { StudioEntry } from "./studio-entry";
 
 vi.mock("../auth/api", () => ({
   getMe: vi.fn(),
@@ -22,7 +23,9 @@ vi.mock("./api", () => ({
   listProjects: vi.fn(),
   createProject: vi.fn(),
   getProject: vi.fn(),
+  ensurePersonalSpace: vi.fn(),
   projectListQueryKey: ["projects", "list"],
+  personalSpaceQueryKey: ["projects", "personal"],
   projectDetailQueryKey: (projectId: string) => ["projects", projectId, "detail"],
 }));
 
@@ -37,6 +40,14 @@ function renderAt(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route element={<h1>登录</h1>} path="/login" />
+          <Route
+            element={
+              <RequireSession>
+                <StudioEntry />
+              </RequireSession>
+            }
+            path="/studio"
+          />
           <Route
             element={
               <RequireSession>
@@ -65,15 +76,20 @@ describe("ProjectsPage", () => {
     vi.mocked(listProjects).mockReset();
     vi.mocked(getProject).mockReset();
     vi.mocked(createProject).mockReset();
-    vi.mocked(getMe).mockResolvedValue({ id: "user-1", email: "owner@example.com" });
+    vi.mocked(ensurePersonalSpace).mockReset();
+    vi.mocked(getMe).mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      platform_admin: false,
+    });
   });
 
   it("shows an empty project list", async () => {
     vi.mocked(listProjects).mockResolvedValue({ items: [], next_cursor: null });
     renderAt("/projects");
 
-    expect(await screen.findByRole("heading", { name: "还没有项目" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "项目" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "还没有创作空间" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "创作空间" })).toBeInTheDocument();
   });
 
   it("shows a project returned by the API", async () => {
@@ -83,6 +99,7 @@ describe("ProjectsPage", () => {
           id: projectId,
           name: "春季成片",
           role: "OWNER",
+          kind: "standard",
           version: 1,
           created_at: "2026-09-27T04:00:00Z",
           updated_at: "2026-09-27T04:00:00Z",
@@ -107,6 +124,7 @@ describe("ProjectsPage", () => {
           id: projectId,
           name: "春季成片",
           role: "OWNER",
+          kind: "standard",
           version: 1,
           created_at: "2026-09-27T04:00:00Z",
           updated_at: "2026-09-27T04:00:00Z",
@@ -118,6 +136,7 @@ describe("ProjectsPage", () => {
       id: createdId,
       name: "新世界",
       role: "OWNER",
+      kind: "standard",
       version: 1,
       created_at: "2026-09-27T05:00:00Z",
       updated_at: "2026-09-27T05:00:00Z",
@@ -130,6 +149,7 @@ describe("ProjectsPage", () => {
         id: createdId,
         name: "新世界",
         role: "OWNER",
+        kind: "standard",
         version: 1,
         created_at: "2026-09-27T05:00:00Z",
         updated_at: "2026-09-27T05:00:00Z",
@@ -138,13 +158,13 @@ describe("ProjectsPage", () => {
     const user = userEvent.setup();
     renderAt("/projects");
 
-    await user.click((await screen.findAllByRole("button", { name: "新建项目" }))[0]);
-    expect(screen.getByText(/不会从其他项目带过来/)).toBeInTheDocument();
-    await user.type(screen.getByLabelText("项目名称"), "新世界");
+    await user.click((await screen.findAllByRole("button", { name: "新建创作空间" }))[0]);
+    expect(screen.getByText(/不会从其他创作空间带过来/)).toBeInTheDocument();
+    await user.type(screen.getByLabelText("创作空间名称"), "新世界");
     await user.click(screen.getByRole("button", { name: "创建" }));
 
-    expect(await screen.findByRole("link", { name: /新世界/ })).toBeInTheDocument();
-    expect(screen.getByText(/这个项目和其他项目分开/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "创作空间" })).toHaveTextContent("新世界");
+    expect(screen.getByText(/这个创作空间和其他空间分开/)).toBeInTheDocument();
     expect(screen.queryByText("春季成片")).not.toBeInTheDocument();
     expect(createProject).toHaveBeenCalledTimes(1);
     expect(vi.mocked(createProject).mock.calls[0]?.[0]).toBe("新世界");
@@ -165,25 +185,85 @@ describe("ProjectsPage", () => {
     const user = userEvent.setup();
     renderAt("/projects");
 
-    expect(await screen.findByRole("heading", { name: "无法加载项目" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "无法加载创作空间" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "重试" }));
-    expect(await screen.findByRole("heading", { name: "还没有项目" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "还没有创作空间" })).toBeInTheDocument();
   });
 
-  it("returns to the project list when the project does not exist", async () => {
-    vi.mocked(getProject).mockRejectedValue(
-      new ApiError({
-        status: 404,
-        code: "not_found",
-        message: "not found",
-        details: {},
-        requestId: "req-3",
-      }),
-    );
+  it("opens the personal space when a project link does not exist", async () => {
+    const personalId = "22222222-2222-4222-8222-222222222222";
+    vi.mocked(getProject).mockImplementation(async (id: string) => {
+      if (id !== personalId) {
+        throw new ApiError({
+          status: 404,
+          code: "not_found",
+          message: "not found",
+          details: {},
+          requestId: "req-3",
+        });
+      }
+      return {
+        id: personalId,
+        name: "个人空间",
+        role: "OWNER",
+        kind: "personal",
+        version: 1,
+        created_at: "2026-09-27T04:00:00Z",
+        updated_at: "2026-09-27T04:00:00Z",
+      };
+    });
+    vi.mocked(ensurePersonalSpace).mockResolvedValue({
+      id: personalId,
+      name: "个人空间",
+      role: "OWNER",
+      kind: "personal",
+      version: 1,
+      created_at: "2026-09-27T04:00:00Z",
+      updated_at: "2026-09-27T04:00:00Z",
+    });
     renderAt(`/projects/${projectId}`);
 
-    expect(await screen.findByRole("heading", { name: "项目" })).toBeInTheDocument();
-    expect(screen.queryByText("工作台尚未开放")).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "你好，今天想创作什么？" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创作空间" })).toHaveTextContent("个人空间");
+  });
+
+  it("retries when the personal space cannot be opened", async () => {
+    const personalId = "22222222-2222-4222-8222-222222222222";
+    vi.mocked(ensurePersonalSpace)
+      .mockRejectedValueOnce(
+        new ApiError({
+          status: 503,
+          code: "retrieval_unavailable",
+          message: "down",
+          details: {},
+          requestId: "req-4",
+        }),
+      )
+      .mockResolvedValueOnce({
+        id: personalId,
+        name: "个人空间",
+        role: "OWNER",
+        kind: "personal",
+        version: 1,
+        created_at: "2026-09-27T04:00:00Z",
+        updated_at: "2026-09-27T04:00:00Z",
+      });
+    vi.mocked(getProject).mockResolvedValue({
+      id: personalId,
+      name: "个人空间",
+      role: "OWNER",
+      kind: "personal",
+      version: 1,
+      created_at: "2026-09-27T04:00:00Z",
+      updated_at: "2026-09-27T04:00:00Z",
+    });
+    const user = userEvent.setup();
+    renderAt("/studio");
+
+    expect(await screen.findByRole("heading", { name: "无法打开个人空间" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "重试" }));
+    expect(await screen.findByRole("heading", { name: "你好，今天想创作什么？" })).toBeInTheDocument();
+    expect(ensurePersonalSpace).toHaveBeenCalledTimes(2);
   });
 
   it("opens the creative workspace without pretending chat is connected", async () => {
@@ -191,6 +271,7 @@ describe("ProjectsPage", () => {
       id: projectId,
       name: "春季成片",
       role: "MEMBER",
+      kind: "standard",
       version: 1,
       created_at: "2026-09-27T04:00:00Z",
       updated_at: "2026-09-27T04:00:00Z",
@@ -199,7 +280,8 @@ describe("ProjectsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "你好，今天想创作什么？" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "创作需求" })).toBeInTheDocument();
-    expect(screen.getByText(/对话服务接入中/)).toBeInTheDocument();
+    expect(screen.queryByText(/当前文本模型/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "发送给模型" })).not.toBeInTheDocument();
     expect(screen.getByText("成员")).toBeInTheDocument();
     expect(screen.queryByText("演示")).not.toBeInTheDocument();
   });
