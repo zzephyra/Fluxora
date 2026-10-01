@@ -42,6 +42,25 @@ describe("generation studio", () => {
     await userEvent.click(screen.getByRole("button", { name: "生成视频" }));
     await waitFor(() => expect(createImageGeneration).toHaveBeenCalledWith("project-a", "一片森林", expect.any(String), { duration: 5, size: "1080*1920" }, "video"));
   });
+  it("shows a carried reference and still submits the text prompt only", async () => {
+    render(
+      <GenerationPage
+        generationType="video"
+        onClearReference={() => undefined}
+        projectId="project-a"
+        prompt="一片森林"
+        referenceAsset={{ id: "up-1", name: "fluxora.png", url: "https://cdn.example/fluxora.png", size: 2.5 * 1024 * 1024, category: "image" }}
+        setGenerationType={() => undefined}
+        setPrompt={() => undefined}
+      />,
+    );
+    expect(screen.getByText("fluxora.png")).toBeInTheDocument();
+    expect(screen.getByText("2.5 MB")).toBeInTheDocument();
+    expect(screen.getByText(/不会把图片发给模型/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /添加参考图片/ })).toBeDisabled();
+    await userEvent.click(await screen.findByRole("button", { name: "生成视频" }));
+    await waitFor(() => expect(createImageGeneration).toHaveBeenCalledWith("project-a", "一片森林", expect.any(String), { duration: 5, size: "1920*1080" }, "video"));
+  });
   it("does not offer unsupported upload or submit without an assigned model", async () => {
     vi.mocked(getActiveImageModel).mockResolvedValue(null);
     render(<Harness />);

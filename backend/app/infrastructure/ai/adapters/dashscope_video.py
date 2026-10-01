@@ -5,6 +5,7 @@ Submit timeouts stay unknown: the caller must not send the request again.
 """
 
 import asyncio
+import base64
 import json
 import urllib.error
 import urllib.request
@@ -46,12 +47,20 @@ class DashScopeVideo:
         prompt: str,
         size: str | None,
         duration: int,
+        image: bytes | None = None,
+        resolution: str | None = None,
     ) -> str:
         url = _origin(base_url) + "/api/v1/services/aigc/video-generation/video-synthesis"
         parameters: dict[str, Any] = {"duration": duration}
         if size:
             parameters["size"] = size
         payload = {"model": model, "input": {"prompt": prompt}, "parameters": parameters}
+        if image is not None:
+            payload["input"]["img_url"] = (
+                "data:image/png;base64," + base64.b64encode(image).decode()
+            )
+            parameters.pop("size", None)
+            parameters["resolution"] = resolution
         status, body = await self._request(
             url,
             api_key,
@@ -64,7 +73,7 @@ class DashScopeVideo:
         if status < 200 or status >= 300 or task_status == "FAILED":
             raise ProviderError("The model provider rejected the video request")
         if not isinstance(task_id, str) or not task_id.strip():
-            raise ProviderError("The model provider returned an empty response")
+            raise ProviderTimeout("The model provider submission outcome is unknown")
         return task_id.strip()
 
     async def poll(
@@ -108,9 +117,11 @@ class DashScopeVideo:
                 _TIMEOUT_SECONDS,
             )
         except _TransportFailure as exc:
-            if exc.kind == "timeout":
-                raise ProviderTimeout("The model provider timed out") from None
+            if exc.kind == "timeout" or payload is not None:
+                raise ProviderTimeout("The model provider submission outcome is unknown") from None
             raise ProviderError("The model provider request failed") from None
+        if payload is not None and status >= 500:
+            raise ProviderTimeout("The model provider submission outcome is unknown")
         if status == 429:
             raise RateLimitError("The model provider is rate limiting requests")
         if status in {401, 403}:

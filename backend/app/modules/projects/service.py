@@ -162,6 +162,13 @@ class ProjectService:
         project, membership = await self._require_visible(uow, actor_id, project_id, lock=False)
         return _project_view(project, membership.role)
 
+    async def authorize_content_write(
+        self, uow: UnitOfWork, actor_id: UUID, project_id: UUID
+    ) -> None:
+        """Hold project lock until caller commits, serializing member removal/deletion."""
+        await self._require_visible(uow, actor_id, project_id, lock=True)
+        await self.auth_service.get_active_user(uow, actor_id)
+
     async def update_project(
         self,
         uow: UnitOfWork,

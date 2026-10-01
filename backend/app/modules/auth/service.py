@@ -104,7 +104,7 @@ class AuthService:
     ) -> LoginResult:
         normalized = normalize_email(email)
         validate_password(password)
-        user = await self.repository.get_user_by_email(uow.session, normalized)
+        user = await self.repository.get_user_by_email(uow.session, normalized, for_update=True)
         password_hash = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
         password_ok = verify_password(password_hash, password)
         if user is None or user.status != UserStatus.ACTIVE or not password_ok:

@@ -42,7 +42,7 @@ function parseModel(value: unknown, capability: string): ImageModel | null {
   return { id: value.id, provider: value.provider, model_name: value.model_name };
 }
 
-function parseTask(value: unknown): GenerationTask | null {
+export function parseTask(value: unknown): GenerationTask | null {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.status !== "string") {
     return null;
   }

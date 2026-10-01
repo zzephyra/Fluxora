@@ -65,6 +65,11 @@ class RateLimitError(ApplicationError):
     code = "rate_limit"
 
 
+class StorageUnavailableError(ApplicationError):
+    status_code = 503
+    code = "storage_unavailable"
+
+
 class ExternalServiceError(ApplicationError):
     status_code = 502
     code = "external_service_error"

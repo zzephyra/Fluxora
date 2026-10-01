@@ -86,6 +86,9 @@ export function useMask(view: ViewTransform, mode: MaskMode, brushSize: number, 
         return;
       }
       drawing.current = false;
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      paint();
+      if (points.current.length === 2) points.current.push(points.current[0]! + 0.001, points.current[1]!);
       if (points.current.length >= 2) {
         commitRef.current({
           id: crypto.randomUUID(),

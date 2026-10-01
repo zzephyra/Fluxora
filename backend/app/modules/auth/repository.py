@@ -7,8 +7,12 @@ from app.modules.auth.models import User, UserSession
 
 
 class AuthRepository:
-    async def get_user_by_email(self, session: AsyncSession, email: str) -> User | None:
+    async def get_user_by_email(
+        self, session: AsyncSession, email: str, *, for_update: bool = False
+    ) -> User | None:
         stmt = select(User).where(User.email_normalized == email)
+        if for_update:
+            stmt = stmt.with_for_update()
         return (await session.execute(stmt)).scalar_one_or_none()
 
     async def get_user_by_id(self, session: AsyncSession, user_id: UUID) -> User | None:

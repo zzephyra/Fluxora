@@ -11,9 +11,11 @@ from app.infrastructure.ai.text_completion import TextCompletionService
 from app.infrastructure.db.session import UnitOfWork, get_uow
 from app.modules.auth.service import AuthService, Principal
 from app.modules.auth.tokens import hashes_match, preauth_token_is_valid
+from app.modules.generation.inputs import GenerationInputService
 from app.modules.generation.service import ImageGenerationService
 from app.modules.generation.video import VideoGenerationService
 from app.modules.projects.service import ProjectService
+from app.modules.uploads.service import UploadService
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -110,6 +112,10 @@ def get_video_generation_service(
     return VideoGenerationService(settings)
 
 
+def get_upload_service(settings: Annotated[Settings, Depends(get_app_settings)]) -> UploadService:
+    return UploadService(settings)
+
+
 async def _require_platform_admin(
     uow: Annotated[UnitOfWork, Depends(get_uow)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -147,5 +153,15 @@ ModelCatalogDep = Annotated[ModelCatalog, Depends(get_model_catalog)]
 TextCompletionDep = Annotated[TextCompletionService, Depends(get_text_completion_service)]
 ImageGenerationDep = Annotated[ImageGenerationService, Depends(get_image_generation_service)]
 VideoGenerationDep = Annotated[VideoGenerationService, Depends(get_video_generation_service)]
+UploadServiceDep = Annotated[UploadService, Depends(get_upload_service)]
 PlatformAdminReadDep = Annotated[Principal, Depends(require_platform_admin_reader)]
 PlatformAdminDep = Annotated[Principal, Depends(require_platform_admin)]
+
+
+def get_generation_input_service(
+    images: ImageGenerationDep,
+) -> GenerationInputService:
+    return GenerationInputService(images.settings, images.storage)
+
+
+GenerationInputDep = Annotated[GenerationInputService, Depends(get_generation_input_service)]

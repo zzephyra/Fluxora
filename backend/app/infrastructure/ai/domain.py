@@ -25,6 +25,7 @@ class ModelCapability(StrEnum):
     EMBEDDING = "embedding"
     TEXT_TO_VIDEO = "text_to_video"
     IMAGE_TO_VIDEO = "image_to_video"
+    IMAGE_INPAINT = "image_inpaint"
     TEXT_TO_IMAGE = "text_to_image"
     SPEECH_SYNTHESIS = "speech_synthesis"
     SPEECH_RECOGNITION = "speech_recognition"
@@ -94,3 +95,18 @@ def _reject_secret_material(value: object) -> None:
             raise ValidationError("Parameters must be JSON")
         return
     raise ValidationError("Parameters must be JSON")
+
+
+MEDIA_ASSIGNMENTS = {"image_inpaint": "text_to_image", "image_to_video": "text_to_video"}
+
+
+def assignment_capability(value: str) -> str:
+    selected = clean_capability(value)
+    return MEDIA_ASSIGNMENTS.get(selected, selected)
+
+
+def configurable_capability(value: str) -> str:
+    selected = clean_capability(value)
+    if selected in MEDIA_ASSIGNMENTS:
+        raise ValidationError("请统一配置图片生成或视频生成模型，无需单独配置此操作")
+    return selected

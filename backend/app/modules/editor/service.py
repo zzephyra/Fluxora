@@ -3,6 +3,7 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from app.core.config import Settings
@@ -11,28 +12,37 @@ from app.core.logging import get_logger
 from app.infrastructure.db.session import UnitOfWork
 from app.infrastructure.media.render import render
 from app.modules.auth.service import AuthService
-from app.modules.editor.models import EditorDocument, EditorRender
+from app.modules.editor.models import (
+    EditorDocument,
+    EditorDocumentAsset,
+    EditorRender,
+    EditorRenderAsset,
+)
 from app.modules.editor.schemas import Composition, CreateDocument, SaveDocument
 from app.modules.generation.service import ImageGenerationService
 from app.modules.projects.service import ProjectService
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+if TYPE_CHECKING:
+    from app.modules.generation.models import Asset
 
 logger = get_logger(__name__)
 MAX_SOURCE_BYTES = 256 * 1024 * 1024
 
 
 class EditorService:
-    def __init__(self, settings: Settings, assets: ImageGenerationService | None = None):
+    def __init__(self, settings: Settings, assets: ImageGenerationService | None = None) -> None:
         self.projects = ProjectService(AuthService(settings))
         self.assets = assets or ImageGenerationService(settings)
 
     async def authorize(self, uow: UnitOfWork, project_id: UUID, actor_id: UUID) -> None:
-        await self.projects.get_project(uow, actor_id, project_id)
-        await self.projects.auth_service.get_active_user(uow, actor_id)
+        await self.projects.authorize_content_write(uow, actor_id, project_id)
 
-    async def validate_assets(self, uow: UnitOfWork, project_id: UUID, composition: Composition):
+    async def validate_assets(
+        self, uow: UnitOfWork, project_id: UUID, composition: Composition
+    ) -> dict[str, "Asset"]:
         assets = {}
         for asset_id in {c.asset_id for c in composition.tracks[0].clips}:
             asset = await self.assets.asset_for_download(
@@ -46,8 +56,14 @@ class EditorService:
         return assets
 
     async def get(
-        self, uow: UnitOfWork, project_id: UUID, actor_id: UUID, document_id: UUID, *, lock=False
-    ):
+        self,
+        uow: UnitOfWork,
+        project_id: UUID,
+        actor_id: UUID,
+        document_id: UUID,
+        *,
+        lock: bool = False,
+    ) -> EditorDocument:
         await self.authorize(uow, project_id, actor_id)
         stmt = select(EditorDocument).where(
             EditorDocument.project_id == project_id, EditorDocument.id == document_id
@@ -59,7 +75,7 @@ class EditorService:
             raise NotFoundError("剪辑工程不存在")
         return document
 
-    async def list(self, uow: UnitOfWork, project_id: UUID, actor_id: UUID):
+    async def list(self, uow: UnitOfWork, project_id: UUID, actor_id: UUID) -> list[EditorDocument]:
         await self.authorize(uow, project_id, actor_id)
         return list(
             (
@@ -74,7 +90,7 @@ class EditorService:
 
     async def create(
         self, uow: UnitOfWork, project_id: UUID, actor_id: UUID, payload: CreateDocument
-    ):
+    ) -> EditorDocument:
         await self.authorize(uow, project_id, actor_id)
         await self.validate_assets(uow, project_id, payload.composition)
         row = EditorDocument(
@@ -86,6 +102,7 @@ class EditorService:
         )
         uow.session.add(row)
         await uow.session.flush()
+        await self.replace_document_assets(uow, row)
         await uow.commit()
         return row
 
@@ -96,7 +113,7 @@ class EditorService:
         actor_id: UUID,
         document_id: UUID,
         payload: SaveDocument,
-    ):
+    ) -> EditorDocument:
         row = await self.get(uow, project_id, actor_id, document_id, lock=True)
         if row.version != payload.expected_version:
             raise VersionConflictError("工程已被其他页面修改，请保留本地工程后重新打开")
@@ -104,6 +121,7 @@ class EditorService:
         row.title, row.composition = payload.title, payload.composition.model_dump(mode="json")
         row.version += 1
         row.updated_at = datetime.now(UTC)
+        await self.replace_document_assets(uow, row)
         await uow.commit()
         return row
 
@@ -115,7 +133,7 @@ class EditorService:
         document_id: UUID,
         version: int,
         key: str,
-    ):
+    ) -> EditorRender:
         if not key.strip() or len(key) > 128:
             raise DomainError("Invalid idempotency key")
         row = await self.get(uow, project_id, actor_id, document_id, lock=True)
@@ -157,6 +175,10 @@ class EditorService:
         uow.session.add(task)
         try:
             await uow.session.flush()
+            for asset_id in {UUID(c["asset_id"]) for c in row.composition["tracks"][0]["clips"]}:
+                uow.session.add(
+                    EditorRenderAsset(project_id=project_id, render_id=task.id, asset_id=asset_id)
+                )
             await uow.commit()
         except IntegrityError:
             await uow.rollback()
@@ -166,7 +188,9 @@ class EditorService:
             return existing
         return task
 
-    async def task(self, uow: UnitOfWork, project_id: UUID, actor_id: UUID, task_id: UUID):
+    async def task(
+        self, uow: UnitOfWork, project_id: UUID, actor_id: UUID, task_id: UUID
+    ) -> EditorRender:
         await self.authorize(uow, project_id, actor_id)
         row = (
             await uow.session.execute(
@@ -179,12 +203,35 @@ class EditorService:
             raise NotFoundError("导出任务不存在")
         return row
 
-    async def latest_render(self, uow: UnitOfWork, project_id: UUID, actor_id: UUID,
-                            document_id: UUID) -> EditorRender | None:
+    async def replace_document_assets(self, uow: UnitOfWork, row: EditorDocument) -> None:
+        await uow.session.execute(
+            delete(EditorDocumentAsset).where(
+                EditorDocumentAsset.project_id == row.project_id,
+                EditorDocumentAsset.document_id == row.id,
+            )
+        )
+        for asset_id in {UUID(c["asset_id"]) for c in row.composition["tracks"][0]["clips"]}:
+            uow.session.add(
+                EditorDocumentAsset(
+                    project_id=row.project_id, document_id=row.id, asset_id=asset_id
+                )
+            )
+        await uow.session.flush()
+
+    async def latest_render(
+        self, uow: UnitOfWork, project_id: UUID, actor_id: UUID, document_id: UUID
+    ) -> EditorRender | None:
         await self.get(uow, project_id, actor_id, document_id)
-        return (await uow.session.execute(select(EditorRender).where(
-            EditorRender.project_id == project_id, EditorRender.document_id == document_id
-        ).order_by(EditorRender.created_at.desc()).limit(1))).scalar_one_or_none()
+        return (
+            await uow.session.execute(
+                select(EditorRender)
+                .where(
+                    EditorRender.project_id == project_id, EditorRender.document_id == document_id
+                )
+                .order_by(EditorRender.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
 
     async def execute_next(self, factory: async_sessionmaker[AsyncSession]) -> bool:
         async with factory() as session:

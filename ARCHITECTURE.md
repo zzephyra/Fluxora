@@ -1,4 +1,4 @@
-# Fluxora Architecture
+# Lumi Architecture
 
 状态：架构基线；实现细则修订于 2026-09-27。本文约束产品范围与工程实现，不表示功能已实现。决策记录见 `docs/adr/`。
 
@@ -8,7 +8,7 @@
 
 ## 1. System Overview
 
-Fluxora 是按项目组织的视频生成平台。用户在项目内上传资料、对话检索、确认记忆、提交视频生成，并查看任务和成片。
+Lumi 是按项目组织的视频生成平台。用户在项目内上传资料、对话检索、确认记忆、提交视频生成，并查看任务和成片。
 
 典型流程：创建项目 → 上传资料 → 对话并检索项目知识 → 编辑生成提示词和参数 → 用户明确提交生成 → 查看任务状态 → 预览与下载视频。
 
@@ -91,7 +91,7 @@ Router / Worker
 ```
 
 ```text
-Fluxora/
+Lumi/
 ├── ARCHITECTURE.md
 ├── frontend/
 │   ├── src/
@@ -222,7 +222,7 @@ PostgreSQL MUST 保存：用户、会话、成员权限、项目、消息、对�
 - 列名 snake_case。
 - 项目资源 MUST 有非空 `project_id`。全局用户与系统级模型配置属于明确例外。
 - 跨资源关系使用外键和复合约束，防止不同项目的会话、文档和资源被关联。
-- 项目资源 Repository MUST 要求 `project_id`，MUST NOT 提供无范围的对外 `get_by_id`。
+- 项目资源 Repository MUST 要求 `project_id`，MUST NOT 提供无范围的对外 `get_by_id`。ADR-024 / ADR-025 的专用管理列表是受平台管理员鉴权的元数据查询例外；详情与取消仍以 project_id + task_id 定位。
 - `project_id` MUST 来自已授权路由上下文，不信任请求体中的归属字段。
 
 Session MUST 由统一 Unit of Work 管理。禁止业务代码到处创建 Session。
@@ -303,7 +303,7 @@ Business Service
 
 业务代码 MUST NOT 知道具体 SDK。能力至少区分 `text_generation`、`embedding`、`text_to_video`、`image_to_video`。不得为了统一接口抹平供应商差异。
 
-每项业务由平台管理员指定一个已登记且能力匹配的模型。前端展示这个模型，不能改选，也不能在请求里提交模型 ID。前端 MUST NOT 猜测供应商参数。详见 [ADR-019](docs/adr/019-business-model-assignment.md)。
+按 ADR-027，所有图片操作统一使用 text_to_image 指定，所有视频操作统一使用 text_to_video 指定；其他业务按能力指定。操作类型与指定类别分离，局部重绘和图生视频不得单独指定模型。前端展示这个模型，不能改选，也不能在请求里提交模型 ID。前端 MUST NOT 猜测供应商参数。详见 [ADR-019](docs/adr/019-business-model-assignment.md)。
 
 供应商的 429、5xx、超时、网络错误和内部错误 MUST 被分类。结果不明时先查询，禁止盲目再次提交付费请求。
 
@@ -333,7 +333,7 @@ MUST NOT 把普通业务、权限、Outbox、视频轮询或取消包装成 Chai
 
 Gateway MUST 是所有模型调用的唯一出口，包括 LLM、Embedding 和视频生成。
 
-PostgreSQL 中的 `model_configs` 保存服务端允许的模型、能力、参数限制和密钥引用。密钥明文 MUST 只存在于服务端配置，接口 MUST NOT 返回明文。目录写入只允许平台管理员，成员只能读取已启用配置且响应不含 secret_ref。管理页 MUST NOT 发起供应商调用。文本补全和图片生成都由独立进程在数据库事务外调用 OpenAI 兼容适配器；图片字节写入私有对象存储，接口地址和密钥只来自服务端配置。文生视频由独立进程领取 queued 记录，在事务外调用已指定的 text_to_video 适配器，成片写入私有对象存储；提交结果不明时保持 submitting 且不得重发。图生视频仍未接入。
+PostgreSQL 中的 `model_configs` 保存服务端允许的模型、能力、参数限制和密钥引用。密钥明文 MUST 只存在于服务端配置，接口 MUST NOT 返回明文。目录写入只允许平台管理员，成员只能读取已启用配置且响应不含 secret_ref。管理页 MUST NOT 发起供应商调用。文本补全和图片生成都由独立进程在数据库事务外调用 OpenAI 兼容适配器；图片字节写入私有对象存储，接口地址和密钥只来自服务端配置。文生视频由独立进程领取 queued 记录，在事务外调用已指定的 text_to_video 适配器，成片写入私有对象存储；提交结果不明时保持 submitting 且不得重发。ADR-026 开放 image_inpaint 局部重绘与 image_to_video 单首帧生成，复用图片/视频任务与 Worker；私有输入持久化并验证项目归属，Pillow 负责图片解码与蒙版转换。
 
 Generation Service MUST NOT 直接依赖 Polling 或 Webhook。它只消费 Provider 返回的远程观察结果。
 
@@ -506,7 +506,7 @@ CORS MUST 使用明确白名单。禁止携带凭据并反射任意 Origin。
 - OWNER：管理项目及其成员。
 - MEMBER：在项目内编辑内容并提交生成。
 
-平台管理员不是项目角色。`users.platform_admin` 只由管理员命令设置，默认 false，接口不能修改。它只授权全局模型目录和业务模型指定，不授予项目内容权限。非管理员访问管理接口返回 404。详见 [ADR-018](docs/adr/018-model-admin-control.md) 与 [ADR-019](docs/adr/019-business-model-assignment.md)。
+平台管理员不是项目角色。`users.platform_admin` 只由管理员命令设置，默认 false，接口不能修改。它授权全局模型目录、业务模型指定、普通用户状态与会话管理，以及跨项目生成任务、资产、视频导出运营元数据查询和受状态机约束的排队任务取消操作。资产仅允许盘点，视频导出仅允许 queued 取消，详见 [ADR-025](docs/adr/025-admin-assets-exports.md)。它不授予项目成员身份，也不开放提示词、对话、知识、记忆或私有媒体内容。具体边界见 [ADR-024](docs/adr/024-admin-users-generation.md)。非管理员访问管理接口返回 404。详见 [ADR-018](docs/adr/018-model-admin-control.md) 与 [ADR-019](docs/adr/019-business-model-assignment.md)。
 
 MUST NOT 在首期实现 Role、Permission、Resource、Policy 组成的 RBAC。数据模型 SHOULD 把角色存成可扩展字段，而不是把权限判断写死在多个布尔列上。ADMIN、EDITOR、VIEWER 和细粒度权限以后必须通过新的 ADR 引入。
 

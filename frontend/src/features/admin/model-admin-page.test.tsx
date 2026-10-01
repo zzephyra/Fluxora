@@ -9,6 +9,8 @@ import { getMe } from "../auth/api";
 import { createModelConfig, disableModelConfig, listModelAssignments, listModelConfigs } from "./api";
 import { AssignmentScreen, CatalogScreen, ModelAdminPage } from "./model-admin-page";
 
+import { AdminOverview, AdminModuleScreen } from "./admin-overview";
+
 vi.mock("./api", () => ({
   listModelConfigs: vi.fn(),
   listModelAssignments: vi.fn(),
@@ -35,6 +37,8 @@ function renderPage(path = "/admin/models") {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route element={<ModelAdminPage />} path="/admin">
+            <Route index element={<AdminOverview />} />
+            <Route element={<AdminModuleScreen />} path=":module" />
             <Route element={<CatalogScreen />} path="models" />
             <Route element={<AssignmentScreen />} path="assignments" />
           </Route>
@@ -57,6 +61,28 @@ describe("model admin page", () => {
       email: "owner@example.com",
       platform_admin: true,
     });
+  });
+
+  it("shows real empty catalog counts and navigates to the planned moderation module", async () => {
+    vi.mocked(listModelConfigs).mockResolvedValue([]);
+    renderPage("/admin/");
+    expect(await screen.findByRole("heading", { name: "控制台总览" })).toBeInTheDocument();
+    const stats = screen.getByRole("region", { name: "模型目录统计" });
+    expect(within(stats).getAllByText("0")).toHaveLength(4);
+    const nav = screen.getByRole("navigation", { name: "管理导航" });
+    expect(within(nav).getByRole("link", { name: "控制台总览" })).toHaveAttribute("aria-current", "page");
+    await userEvent.click(within(nav).getByRole("link", { name: /内容审核/ }));
+    expect(await screen.findByRole("heading", { name: "内容审核" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: /内容审核/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("管理入口已就绪，业务能力待接入")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "停用用户" })).not.toBeInTheDocument();
+  });
+
+  it("guards planned modules with the existing server administrator check", async () => {
+    vi.mocked(listModelConfigs).mockRejectedValue(new ApiError({ status: 404, code: "not_found", message: "Not found", details: {}, requestId: null }));
+    renderPage("/admin/moderation");
+    expect(await screen.findByRole("heading", { name: "工作台" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "内容审核" })).not.toBeInTheDocument();
   });
 
   it("treats a non-admin response as an unknown page", async () => {
@@ -96,7 +122,7 @@ describe("model admin page", () => {
     await userEvent.type(screen.getByLabelText("供应商"), "openai");
     await userEvent.type(screen.getByLabelText("模型名称"), "gpt-4o");
     await userEvent.click(screen.getByLabelText("能力"));
-    await userEvent.click(screen.getByRole("menuitem", { name: "文生视频" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "视频生成" }));
     await userEvent.type(screen.getByLabelText("密钥名称"), "openai_api_key");
     await userEvent.click(screen.getByRole("button", { name: "确认登记" }));
     await waitFor(() => expect(createModelConfig).toHaveBeenCalled());
@@ -189,7 +215,7 @@ describe("model admin page", () => {
     expect(await screen.findByRole("heading", { name: "业务指定" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "登记模型" })).not.toBeInTheDocument();
     const user = userEvent.setup();
-    await user.click(await screen.findByLabelText("文生视频"));
+    await user.click(await screen.findByLabelText("视频生成"));
     expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["qianwen · video-a"]);
     await user.keyboard("{Escape}");
     await user.click(screen.getByLabelText("文本生成"));
@@ -228,7 +254,7 @@ describe("model admin page", () => {
     expect(screen.queryByText("video-a")).not.toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText("搜索模型名称"));
     await userEvent.click(screen.getByRole("button", { name: "能力筛选" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "文生视频" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "视频生成" }));
     expect(screen.getByText("video-a")).toBeInTheDocument();
     expect(screen.queryByText("qwen-plus")).not.toBeInTheDocument();
   });

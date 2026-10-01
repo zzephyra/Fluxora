@@ -71,7 +71,7 @@ async def sample(path: Path):
         "-f",
         "lavfi",
         "-i",
-        "color=c=red:s=320x240:r=30",
+        "color=c=red:s=320x240:r=30:d=1[r];color=c=blue:s=320x240:r=30:d=2[b];[r][b]concat=n=2:v=1:a=0",
         "-f",
         "lavfi",
         "-i",
@@ -118,8 +118,8 @@ async def test_real_ffmpeg_renders_trim_and_black_gaps(tmp_path):
         )
 
     assert max(await pixel(0.3)) < 10
-    red = await pixel(1.5)
-    assert red[0] > 200 and red[1] < 30
+    blue = await pixel(1.5)
+    assert blue[2] > 200 and blue[0] < 30
     assert max(await pixel(2.5)) < 10
     doc["tracks"][0]["clips"][0]["source_end_frame"] = 120
     with pytest.raises(ValueError):
@@ -212,6 +212,10 @@ def test_api_save_conflict_isolation_export_and_replay(api, tmp_path):  # noqa: 
         f"/api/v1/projects/{project}/assets/{finished.json()['output_asset_id']}/content"
     )
     assert output.status_code == 200 and len(output.content) > 1000
+    asset_url = f"/api/v1/projects/{project}/assets/{finished.json()['output_asset_id']}/content"
+    partial = client.get(asset_url, headers={"Range": "bytes=0-99"})
+    assert partial.status_code == 206 and partial.content == output.content[:100]
+    assert client.get(asset_url, headers={"Range": "bytes=999999999-"}).status_code == 416
     assert client.get(f"{url}/latest-render").json()["id"] == task_id
     _login(client, settings, outsider.email, PASSWORD)
     assert client.get(url).status_code == 404

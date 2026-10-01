@@ -66,8 +66,12 @@ GET /auth/csrf 发放短期预认证 CSRF token/cookie；登录和修改请求�
 | POST P/conversations/{id}/messages | content,model_config_id,rag_mode(off/auto/required，默认 auto),memory_ids(默认空)；Idempotency-Key | 202 {run_id,user_message_id,status} |
 | GET P/chat-runs/{id} | 无 | ChatRun |
 | GET P/chat-runs/{id}/events | Last-Event-ID 可选 | SSE |
-| POST P/uploads | filename,mime,size_bytes,kind；幂等键 | 201 {asset_id,upload_url,headers,expires_at} |
+| POST P/uploads | filename,mime,size_bytes,kind；幂等键 | 201 {asset_id,upload_url,headers,expires_at}。这是项目内资源上传的目标契约，当前未实现，也不由用户素材直传替代 |
 | POST P/uploads/{asset_id}/complete | sha256 | 200 Asset |
+| GET /uploads | 登录 | 200 {items,limits}。只返回当前用户 status=uploaded 的素材，limits 来自服务端配置 |
+| POST /uploads/token | filename,content_type,size,category(image/video/file)，可选 key；CSRF。不接受 user_id | 200 {token,key,domain,upload_url,expires_in}。key 由服务端生成。响应不含 Secret Key |
+| POST /uploads/complete | key；CSRF | 200 UploadFile。核对 key 属于当前用户，并在七牛确认对象存在且大小、MIME 符合登记后才标记 uploaded |
+| DELETE /uploads/{id} | CSRF | 204。按文件 ID 和当前用户删除七牛对象并标记 deleted。不能通过 key 删除任意对象 |
 | GET/POST P/documents | POST: title,asset_id；幂等键 | 列表 / 202 {document_id,version_id,ingestion_status,index_status} |
 | GET/DELETE P/documents/{id} | 无 | Document / 204 |
 | POST P/documents/{id}/versions | asset_id,expected_version；幂等键 | 202 文档版本状态 |
@@ -84,7 +88,7 @@ GET /auth/csrf 发放短期预认证 CSRF token/cookie；登录和修改请求�
 | POST /admin/model-configs | provider、model_name、capability、parameters_schema、limits、secret_ref；CSRF。不得含密钥，不能指定 config_version | 201。服务端分配版本 |
 | PATCH /admin/model-configs/{id} | {enabled:false}；CSRF | 200。只能停用，不能改已发布内容。若它是当前指定，同一事务清除 |
 | GET/PUT/DELETE /admin/model-assignments | PUT body 只有 model_config_id。能力必须与配置相同，且配置已启用 | 列表含全部能力，未指定的模型字段为空。非管理员 404。DELETE 204 |
-| GET/POST P/generation-tasks | POST: prompt,parameters,reference_asset_ids,kind（image 或 video，默认 image）；幂等键。不接受 model_config_id。图片 parameters 可为空，或只含 size（允许的宽x高）与 n（1–4），服务端使用 text_to_image。视频 parameters 只含 duration（5）和可选 size（1920*1080、1080*1920、1440*1440），服务端使用 text_to_video。参考图必须为空。列表可用 kind 过滤 | 列表 / 202 GenerationTask。未指定或不支持的参数返回 422。请求立即返回，不在请求内调用供应商。视频提交结果不明时保持 submitting 且不得重发 |
+| GET/POST P/generation-tasks | POST: prompt,parameters,reference_asset_ids,kind（image 或 video，默认 image）；幂等键。不接受 model_config_id。图片 parameters 可为空，或只含 size（允许的宽x高）与 n（1–4），服务端使用 text_to_image。视频 parameters 只含 duration（5）和可选 size（1920*1080、1080*1920、1440*1440），服务端使用 text_to_video。reference_asset_ids 仍必须为空；ADR-026 通过 input_id 引用私有生成输入：image 执行 image_inpaint 且 parameters 为空、复用 text_to_image 指定；video 执行 image_to_video、复用 text_to_video 指定，duration 固定 5、resolution 来自 image-editor-options。列表可用 kind 过滤 | 列表 / 202 GenerationTask。未指定或不支持的参数返回 422。请求立即返回，不在请求内调用供应商。视频提交结果不明时保持 submitting 且不得重发 |
 | GET P/assets/{id}/content | 无 | 200 图片或视频字节。先校验项目成员，再在事务外读取对象。非成员或跨项目 404 |
 | GET P/generation-tasks/{id} | 无 | GenerationTask |
 | POST P/generation-tasks/{id}/cancel | 无 | 200 当前任务。仅 queued 可取消。视频进入 submitting 或 running 后返回 409，不把任务标成 canceled |
@@ -124,3 +128,48 @@ source 为 {type: manual/message/document, id?, version?}；非 manual 必须提
 取消已 canceled 任务返回当前任务；succeeded/failed 返回 409 invalid_transition 并携带当前状态，不新发取消。创建 chat_run 已占用会话时不保存孤立用户消息，消息、运行、幂等键和 Outbox 必须一起成功或回滚。DELETE 已删除但仍能验证原项目归属的资源返回 204；无归属可验证时返回 404。
 
 OpenAPI 是实际实现的机器契约，本文是其设计输入；初始化客户端时固定生成命令和版本并加入 CI。接口未实现前不提交一份虚构的生成客户端，不手工维护平行 DTO。示例响应中的省略字段不能作为后端省略必需字段的理由。
+
+## 视频剪辑接口
+
+新增项目内 `/editor/documents`、`/editor/media` 和 `/editor/renders` 契约，见 [视频编辑器](video-editor.md)。生成资产内容接口支持单区间 Range（206/416）。
+
+## ADR-024 管理接口（已实现）
+
+所有接口逐次验证有效会话、PG platform_admin；非管理员 404，未登录 401，写请求验证 Origin/CSRF，响应 no-store。
+
+- GET `/api/v1/admin/users`：q、status、offset、limit；返回 items/total。
+- PATCH `/api/v1/admin/users/{id}/status`：status、expected_updated_at。
+- POST `/api/v1/admin/users/{id}/revoke-sessions`：expected_updated_at。
+- GET `/api/v1/admin/generation-tasks`：kind、status、provider、project_id、actor_id、task_id、reconciliation_required、created_from/to、offset、limit；返回 items/total。时间必须带时区；limit 1–100，offset 0–100000。
+- GET `/api/v1/admin/projects/{project_id}/generation-tasks/{task_id}`：安全运营元数据详情。
+- POST 同路径 `/cancel`：复用现有取消用例，当前只有 queued 能取消；运行中返回 409。终态重复取消幂等保持现状。
+
+用户写入禁止自己与任何平台管理员，版本不匹配 409；普通用户可通过后台恢复，但旧会话不恢复。不提供密码/邮箱修改、用户创建或管理员授权。跨项目任务 API 只返回安全元数据，不含提示词、request_snapshot、provider_task_id、原始异常、输出资源访问地址；项目 API 的成员检查不变。
+
+## ADR-025 资产与导出接口
+
+沿用平台管理员 PG 鉴权、404 隐藏管理面、写入 Origin/CSRF 和响应 no-store。
+
+- GET `/api/v1/admin/uploads`；GET `/api/v1/admin/users/{user_id}/uploads/{file_id}`。
+- GET `/api/v1/admin/assets`；GET `/api/v1/admin/projects/{project_id}/assets/{asset_id}`。
+- GET `/api/v1/admin/editor-renders`；GET `/api/v1/admin/projects/{project_id}/editor-renders/{render_id}`；POST 同路径 `/cancel`。
+
+列表 offset 0–100000、limit 1–100，默认 20；按 created_at/id 倒序。所有列表支持带时区 created_from/to，并拒绝倒置区间。上传支持 file_id/user_id/category/status；资产支持 asset_id/project_id/created_by/kind/status；导出支持 render_id/project_id/actor_id/document_id/status。具体 DTO 以生成 OpenAPI 为准。资产列表包含 items/total/active_size_bytes，后者排除 deleted 登记，含未完成上传。
+
+不返回对象键、URL、文件名、工程标题、原始错误、快照/轨道或私有内容。详情按所属用户或项目和资源 ID 共同定位。导出仅 queued 可取消、canceled 重复请求幂等，其余状态返回 409；取消写审计，不触发新渲染。
+
+
+### 图片编辑生成（ADR-026）
+
+- `GET P/image-editor-options`：返回重绘和图生视频的可用性、原因、模型名、支持的清晰度和时长；需项目成员权限，无密钥和对象键。
+- `POST P/generation-inputs`：CSRF；`id` 为客户端稳定 UUID，`image_base64` 为无前缀 Base64，重绘须带 `mask_base64`。每个文件最多 80 MiB、16,777,216 像素、边长不超过 8000；静态 PNG/JPEG/WebP。视频首帧宽高至少 240，透明区合成为白色。蒙版须同尺寸且非空，白编辑黑保留。返回 201 `{id,width,height}`。
+- 同 ID 同内容上传完成后返回已有输入；内容改变返回 409。失败上传可使用同 ID 重试，上传中 10 分钟内拒绝并发覆盖。输入归属从路由和会话取，不接受外部 URL。
+- 创建任务引用 ready 输入；`project_id + input_id` 复合外键防止跨项目关联。幂等摘要含规范化图片/蒙版内容摘要。输入不是作品，不出现在作品缩略图中。
+- 新结果依旧由现有 GenerationTask 和授权 asset content 接口查询。禁止将编辑接口降级为文生图或用原图假装生成成功。
+
+
+ADR-027：图片操作统一使用图片生成模型，视频操作统一使用视频生成模型。image_inpaint/image_to_video 仅表示操作类型，不再提供独立指定或新配置类别；历史记录保留且不影响新请求，已排队任务保持原模型快照。Qwen Image 3.0 的选区通过参考图引导，再由应用蒙版合成保证区域外不变，不宣称供应商原生支持 mask。
+
+### 重绘大图输入
+
+生成输入单文件上限为 80 MiB，base64 字符上限 111848108；仍限制静态图片、16,777,216 像素及单边 8000。原图与原尺寸蒙版保存在私有存储，供应商适配器仅缩放调用副本至最长边 2048 且每张不超过 8 MiB。结果回到原尺寸并按原蒙版合成，未选区像素不变。前端不再以模型调用副本的 8 MiB 限制拒绝原图。

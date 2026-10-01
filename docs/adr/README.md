@@ -27,3 +27,9 @@
 | [020](020-text-to-video.md) | 文生视频接入 | Accepted |
 | [021](021-personal-creative-space.md) | 登录后进入个人创作空间 | Accepted |
 | [022](022-video-timeline-editor.md) | 项目内视频时间线编辑器 | Accepted |
+| [023](023-qiniu-direct-upload.md) | 用户素材直传七牛云 | Accepted |
+| [024](024-admin-users-generation.md) | 用户管理与生成任务运营后台 | Accepted |
+| [025](025-admin-assets-exports.md) | 资产与视频导出运营后台 | Accepted |
+| [026](026-image-inpaint-and-image-to-video.md) | 图片局部重绘与图生视频 | Accepted |
+
+| [027](027-unified-media-models.md) | 按媒体类型统一模型指定 | Accepted |

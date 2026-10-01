@@ -1,10 +1,10 @@
+import { brand } from "../../../brand";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Navigate, useLocation, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownUp, ArrowLeft, ArrowUp, ArrowUpRight, Check, ChevronDown, CircleHelp, Clapperboard, Copy, Film, FolderOpen, Image, LayoutGrid, List, Menu, MessageSquare, Plus, Search, ShieldCheck, Sparkles, WandSparkles } from "lucide-react";
+import { ArrowLeft, ArrowUp, ArrowUpRight, Check, ChevronDown, CircleHelp, Clapperboard, Copy, Film, FolderOpen, Menu, MessageSquare, Plus, ShieldCheck, Sparkles, WandSparkles } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import { Input } from "../../../components/ui/input";
-import { FluxoraMark } from "../../../components/ui/fluxora-mark";
+import { LumiMark } from "../../../components/brand/LumiLogo";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../../components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../../components/ui/dropdown-menu";
 import { AccountMenu } from "../../auth";
@@ -15,6 +15,8 @@ import { CreateProjectDialog } from "../create-project-dialog";
 import { creativePresets } from "./presets";
 import { ProfilePage } from "../../profile";
 import { GenerationPage } from "./generation-page";
+import { AssetLibrary } from "./asset-library";
+import { referenceFromLocation } from "./reference-asset";
 import "./workspace.css";
 
 const presetIcons = { story: MessageSquare, brand: Clapperboard, world: Sparkles, shot: Film };
@@ -48,6 +50,7 @@ export function Workspace({ project }: { project: Project }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [draft, generationPrompt]);
+  const referenceAsset = referenceFromLocation(location.state);
   const title = page === "assets" ? "资产" : page === "generation" ? "生成" : page === "profile" ? "个人主页" : "创作";
   if (!["", "/assets", "/generation", "/profile"].includes(suffix)) return <Navigate replace to={base} />;
   function fillPrompt(prompt: string) { setDraft(prompt); textarea.current?.focus(); }
@@ -60,7 +63,7 @@ export function Workspace({ project }: { project: Project }) {
   }
   return <div className="workspace">
     <aside className="workspace-sidebar" aria-label="工作区侧边栏">
-      <Link to={base} className="workspace-brand" aria-label="Fluxora"><FluxoraMark width={43} height={43} /></Link>
+      <Link to={base} className="workspace-brand" aria-label={brand.name}><LumiMark width={32} height={32} /><span>{brand.name}</span></Link>
       
       <nav aria-label="工作区导航">{navItems()}</nav>
       <div className="sidebar-bottom"><div className="project-private"><ShieldCheck size={15} /><span>独立空间</span></div><Button variant="ghost" className="sidebar-help" onClick={() => setDialog("help")}><CircleHelp size={17} /><span>使用帮助</span></Button><Link to="/projects" className="sidebar-back"><ArrowLeft size={16} /><span>管理空间</span></Link></div>
@@ -70,25 +73,22 @@ export function Workspace({ project }: { project: Project }) {
 
       {page === "create" && <main className="workspace-create">
         <div className="create-toolbar"><span><span className="workspace-status-dot" /> 灵感从这里开始</span><Button variant="ghost" onClick={() => { if (draft) setDialog("clear"); else textarea.current?.focus(); }}><Plus size={16} /> 新建草稿</Button></div>
-        <div className="creative-center"><div className="workspace-eyebrow">YOUR IMAGINATION, IN MOTION</div><h1>你好，今天想创作什么？</h1><p className="creative-subtitle">从一句灵感开始，让想象拥有画面。</p><div className="creative-modes"><span><Sparkles size={16} /> 创意对话</span><Link to={`${base}/generation`}><Film size={16} /> 图片与视频 <ArrowUpRight size={13} /></Link></div>
+        <div className="creative-center"><div className="workspace-eyebrow">YOUR IMAGINATION, IN MOTION</div><h1>和 {brand.name} 一起开始创作</h1><p className="creative-subtitle">从文字、图片或视频开始。</p><div className="creative-modes"><span><Sparkles size={16} /> 创意对话</span><Link to={`${base}/generation`}><Film size={16} /> 图片与视频 <ArrowUpRight size={13} /></Link></div>
           <div className="workspace-composer"><div className="composer-row"><button type="button" className="composer-add" disabled title="上传服务接入后开放" aria-label="添加参考素材"><Plus size={22} /></button><label className="sr-only" htmlFor="creative-draft">创作需求</label><textarea ref={textarea} id="creative-draft" placeholder="描述你的灵感，或者从下面的一个方向开始…" value={draft} maxLength={20000} onChange={event => { setDraft(event.target.value); setCopyStatus(""); }} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !event.nativeEvent.isComposing && draft.trim()) { event.preventDefault(); setDialog("draft"); } }} /></div><div className="composer-bottom"><span className="composer-context"><FolderOpen size={15} /> {currentLabel} <span className="composer-separator">·</span> 需求草稿</span><div><span className="draft-count">{draft.length.toLocaleString()} / 20,000</span><Button className="composer-submit" disabled={!draft.trim()} aria-label="预览创作需求" onClick={() => { setCopyStatus(""); setDialog("draft"); }}><ArrowUp size={19} /></Button></div></div></div>
           <div className="preset-grid">{creativePresets.map(preset => { const Icon = presetIcons[preset.kind]; return <button key={preset.id} className="preset-card" onClick={() => fillPrompt(preset.prompt)}><Icon size={20} /><span><strong>{preset.label}</strong></span><ArrowUpRight size={15} /></button>; })}</div>
           <p className="workspace-isolation"><ShieldCheck size={13} /> 这个创作空间和其他空间分开，不会自动带入其他空间的资料、对话或记忆。</p>
         </div>
         <section className="inspiration-section" aria-label="创作灵感"><div className="inspiration-heading"><div><span className="workspace-eyebrow">THE NEXT POSSIBILITY</span><h2>灵感，不止一种可能</h2></div><span>概念参考 · 点击带入创作需求</span></div><div className="inspiration-grid">{[
-          { title: "去往，未被定义的世界", subtitle: "世界观探索", image: "/images/fluxora-world.png", preset: creativePresets[2], tag: "WORLD BUILDING" },
+          { title: "去往，未被定义的世界", subtitle: "世界观探索", image: "/images/lumi-world.png", preset: creativePresets[2], tag: "WORLD BUILDING" },
           { title: "让平凡，成为电影的一幕", subtitle: "光影与叙事", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1000&q=85", preset: creativePresets[0], tag: "VISUAL STORY" },
           { title: "在夜色中，寻找新的视角", subtitle: "镜头语言", image: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=85", preset: creativePresets[3], tag: "CINEMATIC MOOD" },
         ].map(item => <button className="inspiration-card" key={item.tag} onClick={() => fillPrompt(item.preset.prompt)}><img src={item.image} alt="" loading="lazy" /><span className="inspiration-tag">{item.tag}</span><span className="inspiration-caption"><small>{item.subtitle}</small><strong>{item.title}</strong></span><span className="inspiration-arrow"><ArrowUpRight size={19} /></span></button>)}</div></section>
         <footer className="workspace-bottomline"><span>FROM CONTEXT TO CINEMA.</span><span>每一个想法，都值得一帧。</span></footer>
       </main>}
 
-      {page === "assets" && <main className="workspace-content"><div className="workspace-page-heading"><div><span className="workspace-eyebrow">YOUR CREATIVE LIBRARY</span><h1>资产</h1><p>接入后，这里默认汇总你有权访问的全部创作空间作品，并可以按空间和类型筛选。</p></div><Button disabled title="上传服务接入后开放"><Plus size={16} /> 上传资产</Button></div><div className="asset-toolbar"><div className="asset-filters" aria-label="资产类型">{["全部作品", "图片", "视频"].map(type => <button key={type} aria-pressed={assetType === type} className={assetType === type ? "active" : ""} onClick={() => setAssetType(type)}>{type}</button>)}</div><div className="asset-tools"><label className="asset-search"><Search size={16} /><Input aria-label="搜索资产" placeholder="搜索资产名称" value={assetSearch} onChange={event => setAssetSearch(event.target.value)} /></label><Button variant="ghost" disabled title="资产服务接入后开放排序" aria-label="按时间排序"><ArrowDownUp size={17} /></Button><div className="view-toggle"><Button variant="ghost" aria-label="网格视图" aria-pressed={view === "grid"} className={view === "grid" ? "active" : ""} onClick={() => setView("grid")}><LayoutGrid size={17} /></Button><Button variant="ghost" aria-label="列表视图" aria-pressed={view === "list"} className={view === "list" ? "active" : ""} onClick={() => setView("list")}><List size={18} /></Button></div></div></div>
-        <div className="asset-service-note"><CircleHelp size={15} /> 资产服务尚未接入，当前未查询真实作品。全部作品只是以后的授权汇总，不会把各空间结果在页面上拼起来，也不会共享资料或记忆。</div>
-        <section className={`workspace-empty ${view}`} aria-label="资产服务未开放"><div className="empty-art"><div /><FolderOpen size={40} /><span><Image size={19} /></span></div><h2>去创作你的下一帧。</h2><p>生成的图片和视频，将在这里汇聚。<br />你也能在这里整理创作所需的参考素材。</p>{assetSearch && <p className="pending-filter">待查询：{assetType} · {assetSearch}</p>}<Button asChild><Link to={base}>去创作</Link></Button></section>
-      </main>}
+      {page === "assets" && <AssetLibrary assetSearch={assetSearch} assetType={assetType} onGenerate={(asset) => navigate(`${base}/generation`, { state: { referenceAsset: asset } })} setAssetSearch={setAssetSearch} setAssetType={setAssetType} setView={setView} view={view} />}
 
-      {page === "generation" && <GenerationPage projectId={project.id} generationType={generationType} setGenerationType={setGenerationType} prompt={generationPrompt} setPrompt={setGenerationPrompt} />}
+      {page === "generation" && <GenerationPage onClearReference={() => navigate(`${base}/generation`, { replace: true, state: null })} projectId={project.id} generationType={generationType} referenceAsset={referenceAsset} setGenerationType={setGenerationType} prompt={generationPrompt} setPrompt={setGenerationPrompt} />}
       {page === "profile" && <ProfilePage projectId={project.id} />}
 
     </div>

@@ -1,6 +1,7 @@
 import { isRecord } from "./record";
 
 const REQUEST_TIMEOUT_MS = 30_000;
+// Compatibility: preserve the existing cookie name so signed-in sessions keep working.
 const CSRF_COOKIE_NAME = "fluxora_csrf";
 
 export type ApiErrorInit = {
@@ -50,6 +51,9 @@ export function userFacingMessage(error: unknown): string {
   }
   if (error.code === "network_error" || error.code === "timeout") {
     return "无法连接服务器，请重试";
+  }
+  if (error.code === "storage_unavailable") {
+    return "上传服务暂不可用";
   }
   return "操作没有完成，请重试";
 }

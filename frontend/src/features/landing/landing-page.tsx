@@ -1,3 +1,5 @@
+import { LumiLogo } from "../../components/brand/LumiLogo";
+import { brand } from "../../brand";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowDown, ArrowRight, ArrowUpRight, Check, Copy, Film, Layers3, Menu, MoveUpRight, Sparkles, X } from "lucide-react";
@@ -6,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../com
 import "./landing.css";
 
 const works = [
-  { title: "彼方，另一颗太阳", category: "叙事短片", label: "BEYOND THE HORIZON", image: "/images/fluxora-world.png", position: "center", prompt: "一名旅人站在玄武岩悬崖上，巨大的橙红色太阳缓缓升起，远山被雾气覆盖。广角镜头，胶片颗粒，暖色光线。", palette: "赤陶 / 深灰", ratio: "16:9" },
+  { title: "彼方，另一颗太阳", category: "叙事短片", label: "BEYOND THE HORIZON", image: "/images/lumi-world.png", position: "center", prompt: "一名旅人站在玄武岩悬崖上，巨大的橙红色太阳缓缓升起，远山被雾气覆盖。广角镜头，胶片颗粒，暖色光线。", palette: "赤陶 / 深灰", ratio: "16:9" },
   { title: "在城市醒来之前", category: "视觉实验", label: "AFTER HOURS", image: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1000&q=85", position: "center", prompt: "深蓝色夜空与静谧城市，远处微光亮起。缓慢推进镜头，冷色调，安静、疏离的情绪。", palette: "午夜蓝 / 银白", ratio: "16:9" },
   { title: "自然，不止一种形态", category: "品牌概念", label: "NATURAL FREQUENCY", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1000&q=85", position: "center", prompt: "阳光穿过浓密森林，光束落在苔藓与树叶上。微风、清晨水汽，柔和自然色彩，慢速镜头。", palette: "森林绿 / 金色", ratio: "16:9" },
 ];
@@ -16,10 +18,10 @@ const steps = [
   { name: "把想象变成画面", label: "03 / CREATE", title: "每一个镜头，\n都由你来决定。", text: "整理提示词、选择参考素材并确认参数。你决定何时开始生成，作品与创作过程留在同一个项目中。", message: "第一个镜头：旅人走向远处的太阳。", answer: "镜头方案已整理：广角、缓慢推进、低饱和暖色。确认提示词与参数后，再提交生成。", chips: ["镜头 · 缓慢推进", "构图 · 16:9"] },
 ];
 const faqs = [
-  ["Fluxora 和普通的视频生成工具有什么不同？", "Fluxora 围绕项目组织创作：资料、对话、已确认的记忆与生成记录彼此关联。重点是让下一次创作能够接着上一次的想法继续。"],
+  ["Lumi 和普通的视频生成工具有什么不同？", "Lumi 围绕项目组织创作：资料、对话、已确认的记忆与生成记录彼此关联。重点是让下一次创作能够接着上一次的想法继续。"],
   ["现在可以直接生成视频吗？", "视频生成链路仍在开发。官网中的场景图与流程是创作方向展示，不是实时生成结果；你可以进入已有的登录和项目入口。"],
   ["不同项目会共享记忆吗？", "不会默认共享。知识库、对话与记忆按项目隔离，长期记忆需要用户明确确认。"],
-  ["官网中的场景素材来自哪里？", "赤色星球主视觉是为 Fluxora 创建的 AI 概念图；夜空和森林图片来自 Unsplash，用于情绪参考。它们不是平台用户作品或生成能力承诺。"],
+  ["官网中的场景素材来自哪里？", "赤色星球主视觉是为 Lumi 创建的 AI 概念图；夜空和森林图片来自 Unsplash，用于情绪参考。它们不是平台用户作品或生成能力承诺。"],
 ];
 
 const HERO_SHIFT_PX = 12;
@@ -46,7 +48,7 @@ export function LandingPage() {
 
   useEffect(() => {
     const previous = document.title;
-    document.title = "Fluxora — 让想象，有迹可循";
+    document.title = brand.title;
     return () => { document.title = previous; };
   }, []);
   useEffect(() => { setCopied(false); setCopyError(false); }, [selected]);
@@ -108,7 +110,7 @@ export function LandingPage() {
     <div className="landing">
       <a className="skip-link" href="#main">跳到主要内容</a>
       <header className="land-nav">
-        <Link className="land-logo" to="/" aria-label="Fluxora 首页"><span className="logo-mark"><Layers3 size={23} /></span>fluxora<span className="logo-period">®</span></Link>
+        <Link className="land-logo" to="/" aria-label={`${brand.name} 首页`}><LumiLogo /></Link>
         <nav className={menuOpen ? "nav-links is-open" : "nav-links"} aria-label="官网导航">
           <a href="#explore" onClick={jump}>灵感画廊</a><a href="#workflow" onClick={jump}>创作方式</a><a href="#memory" onClick={jump}>项目记忆</a><a href="#faq" onClick={jump}>常见问题</a>
         </nav>
@@ -118,17 +120,17 @@ export function LandingPage() {
       <main id="main">
         <section className="hero" ref={heroRef}>
           <div className="hero-media">
-            <img className="hero-image" src="/images/fluxora-world.png" alt="赤色太阳悬于雾海，一位旅人站在远方的悬崖上" fetchPriority="high" />
+            <img className="hero-image" src="/images/lumi-world.png" alt="赤色太阳悬于雾海，一位旅人站在远方的悬崖上" fetchPriority="high" />
           </div>
           <div className="hero-shade" />
           <div className="hero-topline"><span>THE NEXT FRAME IS YOURS.</span><span>独立创作者的 AI 影像空间</span></div>
           <div className="hero-content">
             <div className="eyebrow"><span className="tiny-line" /> A NEW SPACE FOR YOUR IMAGINATION</div>
-            <h1>让想象，<br />有迹<span className="serif-word">可循。</span><span className="title-star">✳</span></h1>
-            <p>从一个念头，到一个世界。<br />让资料、对话与记忆，成为你的下一帧。</p>
-            <div className="hero-ctas"><Button asChild className="land-button lime"><Link to="/studio">开启你的创作 <ArrowUpRight size={18} /></Link></Button><a className="quiet-link" href="#explore">寻找一点灵感 <ArrowRight size={17} /></a></div>
+            <h1>{brand.name}</h1><h2 className="lumi-hero-tagline">{brand.taglineZh}</h2><span className="lumi-hero-english">{brand.tagline}</span>
+            <p>{brand.descriptionZh}</p>
+            <div className="hero-ctas"><Button asChild className="land-button lime"><Link to="/studio">开始创作 <ArrowUpRight size={18} /></Link></Button><a className="quiet-link" href="#explore">探索 Lumi <ArrowRight size={17} /></a></div>
           </div>
-          <div className="hero-bottom"><a href="#explore" className="scroll-cue"><ArrowDown size={16} /> 向下探索</a><div className="frame-caption"><span>001 — BEYOND THE HORIZON</span><small>FLUXORA ORIGINAL CONCEPT / AI 概念图</small></div><span className="frame-counter"><span>SCENE</span> 01</span></div>
+          <div className="hero-bottom"><a href="#explore" className="scroll-cue"><ArrowDown size={16} /> 向下探索</a><div className="frame-caption"><span>001 — BEYOND THE HORIZON</span><small>Lumi ORIGINAL CONCEPT / AI 概念图</small></div><span className="frame-counter"><span>SCENE</span> 01</span></div>
         </section>
 
         <section className="manifesto-strip" aria-label="产品理念"><span>LESS REPETITION.</span><span className="strip-center">更多想象。更少从头开始。</span><span>MORE IMAGINATION. <Sparkles size={18} /></span></section>
@@ -150,7 +152,7 @@ export function LandingPage() {
 
         <section className="faq-section land-section" id="faq"><div><span className="eyebrow muted">A FEW THINGS TO KNOW</span><h2>想知道更多？</h2></div><div className="faq-list">{faqs.map(([question, answer]) => <details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}</div></section>
       </main>
-      <footer className="land-footer"><div className="footer-top"><Link className="land-logo" to="/"><Layers3 size={25} /> fluxora</Link><span>From context to cinema.</span><a href="#main">回到顶部 ↑</a></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Fluxora</span><span>为还没出现的画面，留一个位置。</span><Link to="/login">进入项目空间 <ArrowUpRight size={14} /></Link></div></footer>
+      <section className="lumi-about" id="about"><h2>About {brand.company}</h2><p>{brand.companyDescription}</p><p>{brand.productDescription}</p></section><footer className="land-footer"><div className="footer-top"><Link className="land-logo" to="/"><LumiLogo /></Link><span>Create beyond imagination.</span><a href="#main">回到顶部 ↑</a></div><nav className="lumi-footer-links" aria-label="产品与公司"><Link to="/studio">Create</Link><Link to="/about">About {brand.company}</Link><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link></nav><div className="footer-bottom"><span>© {new Date().getFullYear()} {brand.company}. All rights reserved.</span><span>{brand.name} by {brand.company}</span><Link to="/login">进入项目空间 <ArrowUpRight size={14} /></Link></div></footer>
 
       <Dialog open={selected !== null} onOpenChange={open => { if (!open) setSelected(null); }}><DialogContent className="land-modal">{selected && <><img className="modal-image" src={selected.image} alt={selected.title} /><div className="modal-copy"><span className="eyebrow muted">{selected.category} / 概念参考</span><DialogTitle className="modal-title">{selected.title}</DialogTitle><DialogDescription className="modal-description">探索画面的情绪、构图与提示词。此素材不是实时生成结果。</DialogDescription><div className="modal-palette">{selected.palette} <span>{selected.ratio}</span></div><p className="prompt-text">{selected.prompt}</p><Button className="land-button lime" onClick={copyPrompt}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? "提示词已复制" : "复制创作提示词"}</Button><span role="status" className="copy-status">{copyError ? "复制未成功，请手动选择上方提示词。" : copied ? "可以粘贴到你的项目中继续创作。" : ""}</span></div></>}</DialogContent></Dialog>
       <Dialog open={draftOpen} onOpenChange={setDraftOpen}><DialogContent className="land-modal draft-modal"><div className="modal-copy"><span className="eyebrow muted">YOUR NEXT FRAME</span><DialogTitle className="modal-title">先留住这个想法。</DialogTitle><DialogDescription className="modal-description">这是本次页面中的临时草稿，刷新后不会保存，也没有提交生成任务。</DialogDescription><p className="prompt-text">{draft}</p><Button asChild className="land-button lime"><Link to="/studio">进入创作空间 <ArrowUpRight size={16} /></Link></Button></div></DialogContent></Dialog>

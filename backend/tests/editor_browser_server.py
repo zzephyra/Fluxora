@@ -4,6 +4,7 @@ Run only after pytest finishes: uv run python -m tests.editor_browser_server
 Uses real FFmpeg media, real cookie authentication, PG persistence and render service.
 The in-memory object storage is a test substitute, never wired into production.
 """
+
 import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -27,12 +28,18 @@ from tests.test_video_editor import composition, sample, seed
 
 
 async def main():
-    settings = make_settings(database_url="postgresql+asyncpg://fluxora:fluxora@127.0.0.1:5432/fluxora_test", cors_allowed_origins=["http://localhost:8011"], csrf_secret="test-csrf-secret-value-with-32b")
+    settings = make_settings(
+        database_url="postgresql+asyncpg://fluxora:fluxora@127.0.0.1:5432/fluxora_test",
+        cors_allowed_origins=["http://localhost:8011"],
+        csrf_secret="test-csrf-secret-value-with-32b",
+    )
     user = await _create_user(settings, "browser-editor@example.com", PASSWORD)
     engine = create_db_engine(settings)
     factory = create_session_factory(engine)
     async with factory() as session:
-        project = await ProjectService(AuthService(settings)).create_project(UnitOfWork(session), user.id, "编辑器验收 · 测试环境")
+        project = await ProjectService(AuthService(settings)).create_project(
+            UnitOfWork(session), user.id, "编辑器验收 · 测试环境"
+        )
     storage = MemoryStorage()
     with TemporaryDirectory() as tmp:
         source = Path(tmp) / "source.mp4"
@@ -41,7 +48,12 @@ async def main():
     assets = ImageGenerationService(settings, storage=storage)
     editor = EditorService(settings, assets)
     async with factory() as session:
-        document = await editor.create(UnitOfWork(session), project.id, user.id, CreateDocument(title="编辑器浏览器验收", composition=composition(asset_id)))
+        document = await editor.create(
+            UnitOfWork(session),
+            project.id,
+            user.id,
+            CreateDocument(title="编辑器浏览器验收", composition=composition(asset_id)),
+        )
     app = create_app(settings)
     app.dependency_overrides[get_image_generation_service] = lambda: assets
     dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -54,12 +66,17 @@ async def main():
     async def worker():
         while True:
             await editor.execute_next(factory)
-            await asyncio.sleep(.5)
+            await asyncio.sleep(0.5)
 
-    print(f"TEST_EDITOR_URL=http://localhost:8011/projects/{project.id}/editor/{document.id}", flush=True)
+    print(
+        f"TEST_EDITOR_URL=http://localhost:8011/projects/{project.id}/editor/{document.id}",
+        flush=True,
+    )
     task = asyncio.create_task(worker())
     try:
-        await uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8011, log_level="warning")).serve()
+        await uvicorn.Server(
+            uvicorn.Config(app, host="127.0.0.1", port=8011, log_level="warning")
+        ).serve()
     finally:
         task.cancel()
         await engine.dispose()

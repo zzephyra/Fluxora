@@ -1,3 +1,4 @@
+import { brand } from "../../brand";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, CircleAlert, Eye, EyeOff, LoaderCircle, ShieldCheck } from "lucide-react";
 import { type FormEvent, useState } from "react";
@@ -124,7 +125,7 @@ export function LoginPage() {
         </form>
         <div className="login-account-note"><ShieldCheck size={17} aria-hidden /><p>当前账号由管理员创建。<br /><span>需要开通账号或重置密码？请联系你的管理员。</span></p></div>
       </section>
-      <footer className="login-footer"><span>© {new Date().getFullYear()} Fluxora</span><span>From context to cinema.</span></footer>
+      <footer className="login-footer" aria-label={`${brand.name} by ${brand.company}`}><span>© {new Date().getFullYear()} {brand.company}. All rights reserved.</span><span>{brand.tagline}</span></footer>
       </div>
       <LoginShowcase />
     </main>

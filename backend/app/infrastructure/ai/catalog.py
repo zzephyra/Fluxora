@@ -15,12 +15,14 @@ from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.infrastructure.ai.domain import (
     MAX_MODEL_CONFIGS,
+    MEDIA_ASSIGNMENTS,
     SECRET_REF_PATTERN,
     AuditAction,
     ModelCapability,
-    clean_capability,
+    assignment_capability,
     clean_model_name,
     clean_provider,
+    configurable_capability,
     json_object,
 )
 from app.infrastructure.ai.models import ModelAssignment, ModelConfig, ModelConfigAudit
@@ -45,7 +47,7 @@ class ModelCatalog:
         uow: UnitOfWork,
         capability: str | None,
     ) -> list[PublicModelConfig]:
-        selected = clean_capability(capability) if capability is not None else None
+        selected = assignment_capability(capability) if capability is not None else None
         rows = await self.repository.list_configs(
             uow.session,
             enabled_only=True,
@@ -54,7 +56,7 @@ class ModelCatalog:
         return [_public(row) for row in rows]
 
     async def active_model(self, uow: UnitOfWork, capability: str) -> PublicModelConfig:
-        selected = clean_capability(capability)
+        selected = assignment_capability(capability)
         config = await self.repository.assigned_config(uow.session, selected)
         if config is None:
             raise NotFoundError("No model is assigned for this capability")
@@ -82,7 +84,7 @@ class ModelCatalog:
     ) -> AdminModelConfig:
         cleaned_provider = clean_provider(provider)
         cleaned_name = clean_model_name(model_name)
-        cleaned_capability = clean_capability(capability)
+        cleaned_capability = configurable_capability(capability)
         schema = json_object(parameters_schema, label="Parameters schema")
         cleaned_limits = json_object(limits, label="Limits")
         cleaned_secret = _allowed_secret_ref(secret_ref, self.settings)
@@ -161,6 +163,7 @@ class ModelCatalog:
         return [
             _assignment_item(capability.value, bound.get(capability.value))
             for capability in ModelCapability
+            if capability.value not in MEDIA_ASSIGNMENTS
         ]
 
     async def assign(
@@ -171,7 +174,7 @@ class ModelCatalog:
         capability: str,
         model_config_id: UUID,
     ) -> ModelAssignmentItem:
-        selected = clean_capability(capability)
+        selected = configurable_capability(capability)
         config = await self.repository.get_config(uow.session, model_config_id)
         if config is None or not config.enabled:
             raise NotFoundError("Model config was not found")
@@ -223,7 +226,7 @@ class ModelCatalog:
         actor_id: UUID,
         capability: str,
     ) -> None:
-        selected = clean_capability(capability)
+        selected = configurable_capability(capability)
         current = await self.repository.get_assignment(uow.session, selected)
         if current is None:
             return
@@ -254,7 +257,9 @@ class ModelCatalog:
 
 
 async def require_assigned(session: AsyncSession, capability: str) -> ModelConfig:
-    config = await ModelConfigRepository().assigned_config(session, capability)
+    config = await ModelConfigRepository().assigned_config(
+        session, assignment_capability(capability)
+    )
     if config is None:
         raise ValidationError("No model is assigned for this capability")
     return config
@@ -324,3 +329,31 @@ def _admin(row: ModelConfig) -> AdminModelConfig:
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+
+INPAINT_MODELS = {
+    "gpt-image-1",
+    "gpt-image-1-mini",
+    "gpt-image-1.5",
+    "qwen-image-3.0",
+    "qwen-image-3.0-pro",
+}
+VIDEO_RESOLUTIONS = {
+    "wan2.2-i2v-flash": ["480P", "720P"],
+    "wan2.2-i2v-plus": ["480P", "1080P"],
+    "wan2.1-i2v-turbo": ["480P", "720P"],
+    "wan2.1-i2v-plus": ["720P"],
+    "wan2.5-i2v-preview": ["480P", "720P", "1080P"],
+    "wan2.6-i2v": ["720P", "1080P"],
+    "wan2.6-i2v-flash": ["720P", "1080P"],
+}
+
+
+async def require_editor_model(uow: UnitOfWork, settings: Settings, capability: str) -> ModelConfig:
+    config = await require_assigned(uow.session, capability)
+    if settings.model_endpoint(config.secret_ref) is None:
+        raise ValidationError("该模型的服务端凭据尚未配置")
+    supported = INPAINT_MODELS if capability == "image_inpaint" else VIDEO_RESOLUTIONS
+    if config.model_name not in supported:
+        raise ValidationError("统一生成模型暂不支持此操作，请管理员检查图片或视频生成模型")
+    return config

@@ -24,6 +24,9 @@ class S3Storage:
     async def get_object(self, *, object_key: str) -> bytes:
         return await _call(self._settings, "GET", object_key, b"", None)
 
+    async def delete_object(self, *, object_key: str) -> None:
+        await _call(self._settings, "DELETE", object_key, b"", None)
+
     async def ensure_bucket(self) -> None:
         await _call(self._settings, "PUT", "", b"", None, bucket_only=True)
 

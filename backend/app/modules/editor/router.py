@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from app.api.deps import ImageGenerationDep, MutationDep, PrincipalDep, SettingsDep, UowDep
+from app.api.security import no_store
 from app.modules.editor.schemas import (
     CreateDocument,
     DocumentList,
@@ -12,9 +13,18 @@ from app.modules.editor.schemas import (
     SaveDocument,
 )
 from app.modules.editor.service import EditorService
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Response
 
-router = APIRouter(prefix="/api/v1/projects/{project_id}/editor", tags=["editor"])
+
+def private_response(response: Response) -> None:
+    no_store(response)
+
+
+router = APIRouter(
+    prefix="/api/v1/projects/{project_id}/editor",
+    tags=["editor"],
+    dependencies=[Depends(private_response)],
+)
 
 
 def get_editor(settings: SettingsDep, assets: ImageGenerationDep) -> EditorService:
@@ -88,6 +98,7 @@ async def task(
 
 
 @router.get("/documents/{document_id}/latest-render", response_model=RenderResponse | None)
-async def latest_render(project_id: UUID, document_id: UUID, principal: PrincipalDep,
-                        uow: UowDep, editor: EditorDep):
+async def latest_render(
+    project_id: UUID, document_id: UUID, principal: PrincipalDep, uow: UowDep, editor: EditorDep
+):
     return await editor.latest_render(uow, project_id, principal.user_id, document_id)

@@ -1,6 +1,6 @@
 # Agent Rules
 
-修改 Fluxora 之前必须阅读：
+修改 Lumi 之前必须阅读：
 
 1. `ARCHITECTURE.md`
 2. 与本次变更相关的 `docs/adr/`

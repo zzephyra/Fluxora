@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
     s3_access_key_id: str = ""
     s3_secret_access_key: str = Field(default="", repr=False)
+    qiniu_access_key: str = ""
+    qiniu_secret_key: str = Field(default="", repr=False)
+    qiniu_bucket: str = ""
+    qiniu_domain: str = ""
+    qiniu_region: str = "z2"
+    qiniu_upload_token_ttl_seconds: int = Field(default=3600, gt=0, le=7200)
+    image_max_size: int = Field(default=20 * 1024 * 1024, gt=0)
+    video_max_size: int = Field(default=512 * 1024 * 1024, gt=0)
+    file_max_size: int = Field(default=50 * 1024 * 1024, gt=0)
     _parsed_endpoints: dict[str, ModelEndpoint] = PrivateAttr(default_factory=dict)
 
     @property
@@ -97,6 +106,25 @@ class Settings(BaseSettings):
             and self.s3_access_key_id.strip()
             and self.s3_secret_access_key.strip()
         )
+
+    @property
+    def qiniu_configured(self) -> bool:
+        return bool(
+            self.qiniu_access_key.strip()
+            and self.qiniu_secret_key.strip()
+            and self.qiniu_bucket.strip()
+            and self.qiniu_domain.strip()
+            and self.qiniu_region.strip()
+        )
+
+    def upload_size_limit(self, category: str) -> int:
+        if category == "image":
+            return self.image_max_size
+        if category == "video":
+            return self.video_max_size
+        if category == "file":
+            return self.file_max_size
+        raise ValueError("upload category is invalid")
 
     def model_endpoint(self, secret_ref: str) -> tuple[str, str] | None:
         endpoint = self._parsed_endpoints.get(secret_ref)

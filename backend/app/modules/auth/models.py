@@ -40,3 +40,13 @@ class UserSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     csrf_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class UserAdminAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "auth_admin_audits"
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    target_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    before_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    after_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    request_id: Mapped[str] = mapped_column(String(128), nullable=False)

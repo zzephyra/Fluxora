@@ -22,11 +22,12 @@ from app.core.errors import (
 from app.core.errors import TimeoutError as ProviderTimeout
 from app.core.logging import get_logger
 from app.infrastructure.ai.adapters.dashscope_video import DashScopeVideo
-from app.infrastructure.ai.catalog import require_assigned
+from app.infrastructure.ai.catalog import VIDEO_RESOLUTIONS, require_assigned, require_editor_model
 from app.infrastructure.ai.domain import json_object
 from app.infrastructure.ai.models import ModelConfig
 from app.infrastructure.db.session import UnitOfWork
 from app.infrastructure.storage.s3 import S3Storage
+from app.modules.generation.inputs import require_input
 from app.modules.generation.models import Asset, GenerationOutput, GenerationTask
 
 logger = get_logger(__name__)
@@ -46,6 +47,8 @@ class VideoClient(Protocol):
         prompt: str,
         size: str | None,
         duration: int,
+        image: bytes | None = None,
+        resolution: str | None = None,
     ) -> str:
         """Return the provider task id. A timeout must stay distinguishable from rejection."""
 
@@ -89,16 +92,35 @@ class VideoGenerationService:
         prompt: str,
         parameters: dict,
         idempotency_key: str,
+        input_id: UUID | None = None,
     ) -> GenerationTask:
         key = _clean_key(idempotency_key)
         cleaned = _clean_prompt(prompt)
-        safe_parameters = _parameters(parameters)
+        safe_parameters = _parameters(parameters) if input_id is None else parameters
         if not self.settings.object_storage_configured:
             raise ValidationError("Object storage is not configured")
-        config = await require_assigned(uow.session, "text_to_video")
+        source = None
+        if input_id:
+            config = await require_editor_model(uow, self.settings, "image_to_video")
+            source = await require_input(uow.session, project_id, input_id, inpaint=False)
+            if (
+                set(parameters) - {"resolution", "duration"}
+                or parameters.get("duration", 5) != 5
+                or type(parameters.get("duration", 5)) is not int
+            ):
+                raise ValidationError("图生视频当前仅支持 5 秒")
+            resolution = parameters.get("resolution", VIDEO_RESOLUTIONS[config.model_name][0])
+            if resolution not in VIDEO_RESOLUTIONS[config.model_name]:
+                raise ValidationError("该模型不支持所选清晰度")
+            safe_parameters = {"duration": 5, "resolution": resolution}
+        else:
+            config = await require_assigned(uow.session, "text_to_video")
         if self.settings.model_endpoint(config.secret_ref) is None:
             raise ValidationError("Secret reference is not configured")
-        request_hash = _request_hash(config.id, cleaned, safe_parameters)
+        hash_parameters = (
+            {**safe_parameters, "input_sha256": source.sha256} if source else safe_parameters
+        )
+        request_hash = _request_hash(config.id, cleaned, hash_parameters)
         existing = await _by_key(uow.session, project_id, actor_id, key)
         if existing is not None:
             return _same_request(existing, request_hash)
@@ -110,7 +132,13 @@ class VideoGenerationService:
             config_version=config.config_version,
             idempotency_key=key,
             request_hash=request_hash,
-            request_snapshot={"prompt": cleaned, "parameters": safe_parameters, "kind": "video"},
+            request_snapshot={
+                "prompt": cleaned,
+                "parameters": safe_parameters,
+                "kind": "video",
+                "operation": "image_to_video" if source else "text_to_video",
+            },
+            input_id=input_id,
             kind="video",
             status="queued",
             phase=None,
@@ -138,6 +166,13 @@ class VideoGenerationService:
         return row
 
     async def cancel(self, uow: UnitOfWork, *, project_id: UUID, task_id: UUID) -> GenerationTask:
+        row = await self.cancel_in_transaction(uow, project_id=project_id, task_id=task_id)
+        await uow.commit()
+        return row
+
+    async def cancel_in_transaction(
+        self, uow: UnitOfWork, *, project_id: UUID, task_id: UUID
+    ) -> GenerationTask:
         now = datetime.now(UTC)
         stmt = (
             update(GenerationTask)
@@ -152,7 +187,7 @@ class VideoGenerationService:
         )
         canceled = (await uow.session.execute(stmt)).one_or_none()
         if canceled is not None:
-            await uow.commit()
+            await uow.session.flush()
             row = await _get(uow.session, project_id, task_id)
             if row is None:
                 raise NotFoundError("Generation task was not found")
@@ -218,7 +253,9 @@ class VideoGenerationService:
         if reconciliation:
             return
         try:
-            provider_task_id = await self._call_submit(model_config_id, prompt, parameters)
+            provider_task_id = await self._call_submit(
+                model_config_id, prompt, parameters, task_id=task_id
+            )
         except ProviderTimeout:
             logger.info("video_generation_submit_unknown", task_id=str(task_id))
             await self._mark_unknown(task_id)
@@ -381,7 +418,11 @@ class VideoGenerationService:
         factory = self._factory()
         async with factory() as session:
             config = await session.get(ModelConfig, model_config_id)
-            if config is None or not config.enabled or config.capability != "text_to_video":
+            if (
+                config is None
+                or not config.enabled
+                or config.capability not in {"text_to_video", "image_to_video"}
+            ):
                 raise NotFoundError("Model config was not found")
             model_name = config.model_name
             secret_ref = config.secret_ref
@@ -391,8 +432,29 @@ class VideoGenerationService:
         base_url, api_key = endpoint
         return base_url, api_key, model_name
 
-    async def _call_submit(self, model_config_id: UUID, prompt: str, parameters: dict) -> str:
+    async def _call_submit(
+        self, model_config_id: UUID, prompt: str, parameters: dict, *, task_id: UUID | None = None
+    ) -> str:
         base_url, api_key, model_name = await self._endpoint(model_config_id)
+        async with self._factory()() as session:
+            task = await session.get(GenerationTask, task_id) if task_id else None
+            source = (
+                await require_input(session, task.project_id, task.input_id, inpaint=False)
+                if task and task.input_id
+                else None
+            )
+        if source:
+            image = await self.storage.get_object(object_key=source.image_key)
+            return await self.client.submit(
+                base_url=base_url,
+                api_key=api_key,
+                model=model_name,
+                prompt=prompt,
+                size=None,
+                duration=5,
+                image=image,
+                resolution=parameters["resolution"],
+            )
         size, duration = _provider_options(parameters)
         return await self.client.submit(
             base_url=base_url,

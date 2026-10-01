@@ -1,1 +1,1 @@
-"""Fluxora backend application."""
+"""Lumi backend application."""

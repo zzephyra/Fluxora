@@ -9,9 +9,11 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -30,6 +32,8 @@ _FOREIGN_KEY_TARGETS = (User, Project, ModelConfig)
 class Asset(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "assets"
     __table_args__ = (
+        Index("ix_assets_admin_created", "created_at", "id"),
+        UniqueConstraint("project_id", "id", name="uq_assets_project_id"),
         CheckConstraint("kind IN ('IMAGE', 'VIDEO', 'AUDIO', 'FILE')", name="ck_assets_kind"),
         CheckConstraint(
             "status IN ('uploading', 'ready', 'failed', 'deleted')",
@@ -57,11 +61,35 @@ class Asset(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class GenerationInput(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "generation_inputs"
+    __table_args__ = (
+        UniqueConstraint("project_id", "id", name="uq_generation_inputs_project_id"),
+        CheckConstraint(
+            "status IN ('uploading', 'ready', 'failed', 'deleted')",
+            name="ck_generation_inputs_status",
+        ),
+    )
+    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    image_key: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
+    mask_key: Mapped[str | None] = mapped_column(String(512))
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+
+
 class GenerationTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """One explicit generation. Video tasks also use submitting and cancel_requested."""
 
     __tablename__ = "generation_tasks"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["project_id", "input_id"],
+            ["generation_inputs.project_id", "generation_inputs.id"],
+            name="fk_generation_tasks_input_scope",
+        ),
         CheckConstraint(
             "status IN ('queued', 'submitting', 'running', 'cancel_requested', "
             "'succeeded', 'failed', 'canceled')",
@@ -81,6 +109,7 @@ class GenerationTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_generation_tasks_project_created", "project_id", "created_at", "id"),
         Index("ix_generation_tasks_status_created", "status", "created_at"),
+        Index("ix_generation_tasks_admin_created", "created_at", "id"),
     )
 
     project_id: Mapped[UUID] = mapped_column(
@@ -97,6 +126,7 @@ class GenerationTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     config_version: Mapped[int] = mapped_column(Integer, nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    input_id: Mapped[UUID | None] = mapped_column(nullable=True)
     request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     request_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
     kind: Mapped[str] = mapped_column(
@@ -151,3 +181,13 @@ class GenerationOutput(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+
+class GenerationAdminAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "generation_admin_audits"
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    target_id: Mapped[UUID] = mapped_column(ForeignKey("generation_tasks.id"), nullable=False)
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    before_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    after_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    request_id: Mapped[str] = mapped_column(String(128), nullable=False)

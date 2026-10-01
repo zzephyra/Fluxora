@@ -9,12 +9,18 @@ from app.infrastructure.ai.models import (
     ModelConfigAudit,
     TextCompletion,
 )
-from app.modules.generation.models import Asset, GenerationOutput, GenerationTask
 from app.infrastructure.db.base import Base
 from app.infrastructure.outbox.models import OutboxEvent
-from app.modules.auth.models import User, UserSession
+from app.modules.auth.models import User, UserAdminAudit, UserSession
+from app.modules.editor.models import EditorAdminAudit, EditorDocument, EditorRender
+from app.modules.generation.models import (
+    Asset,
+    GenerationAdminAudit,
+    GenerationOutput,
+    GenerationTask,
+)
 from app.modules.projects.models import Project, ProjectMember
-from app.modules.editor.models import EditorDocument, EditorRender
+from app.modules.uploads.models import UploadFile
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -27,7 +33,10 @@ target_metadata = Base.metadata
 registered_tables = {
     EditorDocument.__tablename__,
     EditorRender.__tablename__,
+    EditorAdminAudit.__tablename__,
     User.__tablename__,
+    UserAdminAudit.__tablename__,
+    GenerationAdminAudit.__tablename__,
     UserSession.__tablename__,
     Project.__tablename__,
     ProjectMember.__tablename__,
@@ -39,6 +48,7 @@ registered_tables = {
     Asset.__tablename__,
     GenerationTask.__tablename__,
     GenerationOutput.__tablename__,
+    UploadFile.__tablename__,
 }
 missing_tables = registered_tables.difference(target_metadata.tables)
 if missing_tables:

@@ -1,5 +1,6 @@
 """Queue one explicit image generation and finish it outside the request transaction."""
 
+import asyncio
 import hashlib
 import json
 import re
@@ -7,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID, uuid4
 
+from PIL import Image
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -21,11 +23,12 @@ from app.core.errors import (
 )
 from app.core.logging import get_logger
 from app.infrastructure.ai.adapters.openai_images import OpenAICompatibleImages
-from app.infrastructure.ai.catalog import require_assigned
+from app.infrastructure.ai.catalog import require_assigned, require_editor_model
 from app.infrastructure.ai.domain import PROMPT_MAX_LENGTH, json_object
 from app.infrastructure.ai.models import ModelConfig
 from app.infrastructure.db.session import UnitOfWork
 from app.infrastructure.storage.s3 import S3Storage
+from app.modules.generation.inputs import decode_image, png, require_input
 from app.modules.generation.models import Asset, GenerationOutput, GenerationTask
 
 logger = get_logger(__name__)
@@ -34,6 +37,10 @@ _EXTENSIONS = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
 
 class ImageClient(Protocol):
+    async def edit(
+        self, *, base_url: str, api_key: str, model: str, prompt: str, image: bytes, mask: bytes
+    ) -> list[tuple[bytes, str]]: ...
+
     async def generate(
         self,
         *,
@@ -77,16 +84,27 @@ class ImageGenerationService:
         prompt: str,
         parameters: dict,
         idempotency_key: str,
+        input_id: UUID | None = None,
     ) -> GenerationTask:
         key = _clean_key(idempotency_key)
         cleaned = _clean_prompt(prompt)
         safe_parameters = _parameters(parameters)
         if not self.settings.object_storage_configured:
             raise ValidationError("Object storage is not configured")
-        config = await require_assigned(uow.session, "text_to_image")
+        source = None
+        if input_id:
+            if parameters:
+                raise ValidationError("局部重绘不支持额外生成参数")
+            config = await require_editor_model(uow, self.settings, "image_inpaint")
+            source = await require_input(uow.session, project_id, input_id, inpaint=True)
+        else:
+            config = await require_assigned(uow.session, "text_to_image")
         if self.settings.model_endpoint(config.secret_ref) is None:
             raise ValidationError("Secret reference is not configured")
-        request_hash = _request_hash(config.id, cleaned, safe_parameters)
+        hash_parameters = (
+            {**safe_parameters, "input_sha256": source.sha256} if source else safe_parameters
+        )
+        request_hash = _request_hash(config.id, cleaned, hash_parameters)
         existing = await _by_key(uow.session, project_id, actor_id, key)
         if existing is not None:
             return _same_request(existing, request_hash)
@@ -98,7 +116,12 @@ class ImageGenerationService:
             config_version=config.config_version,
             idempotency_key=key,
             request_hash=request_hash,
-            request_snapshot={"prompt": cleaned, "parameters": safe_parameters},
+            request_snapshot={
+                "prompt": cleaned,
+                "parameters": safe_parameters,
+                "operation": "image_inpaint" if source else "text_to_image",
+            },
+            input_id=input_id,
             kind="image",
             status="queued",
             phase=None,
@@ -170,6 +193,13 @@ class ImageGenerationService:
         return found
 
     async def cancel(self, uow: UnitOfWork, *, project_id: UUID, task_id: UUID) -> GenerationTask:
+        row = await self.cancel_in_transaction(uow, project_id=project_id, task_id=task_id)
+        await uow.commit()
+        return row
+
+    async def cancel_in_transaction(
+        self, uow: UnitOfWork, *, project_id: UUID, task_id: UUID
+    ) -> GenerationTask:
         stmt = (
             update(GenerationTask)
             .where(
@@ -183,7 +213,7 @@ class ImageGenerationService:
         )
         canceled = (await uow.session.execute(stmt)).one_or_none()
         if canceled is not None:
-            await uow.commit()
+            await uow.session.flush()
             row = await _get(uow.session, project_id, task_id)
             if row is None:
                 raise NotFoundError("Generation task was not found")
@@ -217,18 +247,39 @@ class ImageGenerationService:
         return asset
 
     async def editor_assets(self, uow: UnitOfWork, *, project_id: UUID) -> list[Asset]:
-        rows = await uow.session.execute(select(Asset).where(
-            Asset.project_id == project_id, Asset.status == "ready", Asset.kind == "VIDEO"
-        ).order_by(Asset.created_at.desc()).limit(100))
+        rows = await uow.session.execute(
+            select(Asset)
+            .where(Asset.project_id == project_id, Asset.status == "ready", Asset.kind == "VIDEO")
+            .order_by(Asset.created_at.desc())
+            .limit(100)
+        )
         return list(rows.scalars())
 
-    async def register_editor_output(self, uow: UnitOfWork, *, project_id: UUID,
-                                     actor_id: UUID, asset_id: UUID, object_key: str,
-                                     content: bytes, width: int, height: int) -> Asset:
-        asset = Asset(id=asset_id, project_id=project_id, created_by=actor_id,
-                      kind="VIDEO", status="ready", object_key=object_key,
-                      mime="video/mp4", size_bytes=len(content),
-                      sha256=hashlib.sha256(content).hexdigest(), width=width, height=height)
+    async def register_editor_output(
+        self,
+        uow: UnitOfWork,
+        *,
+        project_id: UUID,
+        actor_id: UUID,
+        asset_id: UUID,
+        object_key: str,
+        content: bytes,
+        width: int,
+        height: int,
+    ) -> Asset:
+        asset = Asset(
+            id=asset_id,
+            project_id=project_id,
+            created_by=actor_id,
+            kind="VIDEO",
+            status="ready",
+            object_key=object_key,
+            mime="video/mp4",
+            size_bytes=len(content),
+            sha256=hashlib.sha256(content).hexdigest(),
+            width=width,
+            height=height,
+        )
         uow.session.add(asset)
         await uow.session.flush()
         return asset
@@ -250,7 +301,7 @@ class ImageGenerationService:
             return
         project_id, actor_id, prompt, model_config_id, parameters = claimed
         try:
-            images = await self._call_provider(model_config_id, prompt, parameters)
+            images = await self._call_provider(model_config_id, prompt, parameters, task_id=task_id)
             await self._store(task_id, project_id, actor_id, images)
         except ApplicationError as exc:
             logger.info(
@@ -309,18 +360,40 @@ class ImageGenerationService:
         model_config_id: UUID,
         prompt: str,
         parameters: dict,
+        task_id: UUID | None = None,
     ) -> list[tuple[bytes, str]]:
         factory = self._factory()
         async with factory() as session:
             config = await session.get(ModelConfig, model_config_id)
-            if config is None or not config.enabled or config.capability != "text_to_image":
+            if (
+                config is None
+                or not config.enabled
+                or config.capability not in {"text_to_image", "image_inpaint"}
+            ):
                 raise NotFoundError("Model config was not found")
             model_name = config.model_name
             secret_ref = config.secret_ref
+            source = None
+            task = await session.get(GenerationTask, task_id) if task_id else None
+            if task is not None and task.input_id is not None:
+                source = await require_input(session, task.project_id, task.input_id, inpaint=True)
         endpoint = self.settings.model_endpoint(secret_ref)
         if endpoint is None:
             raise ValidationError("Secret reference is not configured")
         base_url, api_key = endpoint
+        if source is not None:
+            image = await self.storage.get_object(object_key=source.image_key)
+            mask = await self.storage.get_object(object_key=source.mask_key)
+            images = await self.client.edit(
+                base_url=base_url,
+                api_key=api_key,
+                model=model_name,
+                prompt=prompt,
+                image=image,
+                mask=mask,
+            )
+            # Keep pixels outside the user's selection exactly unchanged.
+            return await asyncio.to_thread(_composite_edits, image, mask, images)
         size, count = _provider_options(parameters)
         return await self.client.generate(
             base_url=base_url,
@@ -509,3 +582,13 @@ async def _get(session: AsyncSession, project_id: UUID, task_id: UUID) -> Genera
         GenerationTask.project_id == project_id,
     )
     return (await session.execute(stmt)).scalar_one_or_none()
+
+
+def _composite_edits(original: bytes, mask: bytes, images: list[tuple[bytes, str]]):
+    source = decode_image(original)
+    selection = decode_image(mask).convert("L")
+    results = []
+    for content, _mime in images:
+        edited = decode_image(content).resize(source.size, Image.Resampling.LANCZOS)
+        results.append((png(Image.composite(edited, source, selection)), "image/png"))
+    return results

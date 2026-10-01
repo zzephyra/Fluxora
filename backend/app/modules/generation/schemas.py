@@ -12,6 +12,7 @@ class CreateGenerationRequest(_StrictRequest):
     prompt: str
     parameters: dict = Field(default_factory=dict)
     reference_asset_ids: list[UUID] = Field(default_factory=list)
+    input_id: UUID | None = None
     kind: str = "image"
 
 
@@ -39,3 +40,24 @@ class GenerationTaskResponse(BaseModel):
 
 class GenerationTaskList(BaseModel):
     items: list[GenerationTaskResponse]
+
+
+class SaveGenerationInputRequest(_StrictRequest):
+    id: UUID
+    image_base64: str = Field(min_length=1, max_length=111848108)
+    mask_base64: str | None = Field(default=None, min_length=1, max_length=111848108)
+
+
+class GenerationInputResponse(BaseModel):
+    id: UUID
+    width: int
+    height: int
+
+
+class ImageEditorOption(BaseModel):
+    capability: str
+    available: bool
+    reason: str | None
+    model_name: str | None
+    resolutions: list[str]
+    duration: int | None

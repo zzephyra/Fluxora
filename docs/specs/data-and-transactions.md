@@ -72,3 +72,26 @@ memory 使用 VerifiedSourcePort 验证来源。该 Port 由来源拥有模块�
 删除先屏蔽读取；正文/对象物理清理与引用元数据保留分开。被 message_citations 引用的 chunk/document 不能直接删掉导致外键失败：清空可删除正文并保留 ID、hash、locator、deleted_at 墓碑，待引用的保留期结束后按依赖顺序清理。chunks.text 在有效期间非空，清理后允许 NULL，查询必须排除墓碑。记忆修订亦只保留必要元数据，不用修订历史绕过用户删除。
 
 旧版文档更新不会物理清理尚需历史引用的正文；文档显式删除才触发清理。项目删除清理涉及多个模块，由恢复 Worker 调用各模块公开清理用例，业务模块之间不反向 import。全局审计记录由 infrastructure 提供追加写入 Port，至少记录 actor、operation、target、request_id、outcome、created_at，不保存密钥或原文。任务人工恢复必须写审计记录。
+
+## 视频剪辑数据
+
+迁移 0009 增加 editor_documents、editor_renders；编辑工程及不可变导出快照为版本化 JSONB，权限、项目、操作者、版本和任务状态保持显式列。源资产引用通过既有资产用例验证。详见 [视频编辑器](video-editor.md)。
+
+迁移 0010 为工程、渲染任务及资产增加项目复合外键；editor_document_assets 和 editor_render_assets 显式登记源引用，防止跨空间引用及素材被物理误删。
+
+## ADR-024 管理审计
+
+`auth_admin_audits` 归 auth，`generation_admin_audits` 归 generation，包含 id、actor_id、target_id、action、before_status、after_status、request_id 与时间。操作及审计在同一 UoW 提交，失败共同回滚。账号目标行锁与 expected_updated_at 防止覆盖；登录也锁定同一用户行，使停用/会话撤销与新会话创建串行化。任务取消使用同一行锁与既有事务内取消用例，Worker 竞争仍服从原状态条件更新。后台查询直接读取 PG，不使用 ES 判断状态。迁移：0012_admin_operations。
+
+## ADR-025 资产盘点与导出审计
+
+用户上传归 uploads，项目资产归现有 generation 资产用例，渲染与编辑器来源归 editor。EditorAdminService 通过 AssetAdminService 查询安全资产 DTO 后以自身渲染记录补全来源，不由跨模块 SQL JOIN 读取素材表。生成来源从 GenerationOutput 判断，未确认来源标记 other，不从对象键猜测。
+
+editor_admin_audits 与导出取消状态在同一事务提交。取消通过与 Worker 领取相同的 EditorRender 行锁串行化；running 不可取消。迁移 0013 添加审计表与三个管理列表时间/ID 索引。对象存储、现有源引用和项目成员权限保持原语义。
+
+
+### 生成输入（ADR-026）
+
+`generation_inputs` 归 generation 所有，记录项目、创建人、图片/蒙版私有对象键、SHA256、尺寸及上传状态。独立于作品 Asset。先提交 uploading 登记，事务外写对象，再提交 ready；失败登记保留供重试/回收。请求失败不会留下无归属的新对象键。任务增加可空 input_id，与 project_id 建立复合外键；旧任务为空。任务快照保存 operation，模型配置版本与内容摘要进入已有不可变任务/幂等契约。图片重绘合成阶段保留蒙版外原图像素，结果另存资产。
+
+输入读取/绑定与回收使用行锁。回收先确认无任务引用，再标记 deleted 并提交；新任务只允许 ready 输入，防止提交后回收其依赖。所有任务引用（包括终态）都阻止回收。

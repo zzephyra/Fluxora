@@ -14,6 +14,12 @@ function trace(context: CanvasRenderingContext2D, stroke: Stroke) {
   context.lineCap = "round";
   context.lineJoin = "round";
   context.stroke();
+  if (stroke.points.length === 2) {
+    context.fillStyle = context.strokeStyle;
+    context.beginPath();
+    context.arc(startX, startY, stroke.width / 2, 0, Math.PI * 2);
+    context.fill();
+  }
 }
 
 export function renderMask(width: number, height: number, strokes: Stroke[]): HTMLCanvasElement {
@@ -28,8 +34,8 @@ export function renderMask(width: number, height: number, strokes: Stroke[]): HT
   context.fillRect(0, 0, canvas.width, canvas.height);
   for (const stroke of strokes) {
     context.save();
-    context.globalCompositeOperation = stroke.mode === "remove" ? "destination-out" : "source-over";
-    context.strokeStyle = "#fff";
+    context.globalCompositeOperation = "source-over";
+    context.strokeStyle = stroke.mode === "remove" ? "#000" : "#fff";
     trace(context, stroke);
     context.restore();
   }

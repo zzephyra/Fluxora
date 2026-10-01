@@ -1,3 +1,624 @@
-.video-editor{height:100dvh;min-height:620px;background:var(--color-canvas);color:var(--color-ink);display:flex;flex-direction:column;font-size:13px;overflow:hidden}.video-editor button{cursor:pointer}.video-editor button:disabled{cursor:not-allowed;opacity:.4}.video-editor button:focus-visible,.video-editor input:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}.video-editor button{border-radius:7px;font-size:12px;height:34px;padding:0 10px;gap:6px}.ve-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;border-bottom:1px solid var(--color-line);min-height:65px}.ve-header-title,.ve-header-actions{display:flex;align-items:center;gap:10px;min-width:0}.ve-header-title input{background:transparent;border:1px solid transparent;color:inherit;font-size:14px;width:180px;padding:6px;border-radius:5px}.ve-header-title input:focus{border-color:var(--color-line)}.ve-save-state{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-muted);white-space:nowrap}.ve-main{display:grid;grid-template-columns:230px minmax(0,1fr) 240px;min-height:240px;flex:1;overflow:hidden}.ve-materials,.ve-properties{background:var(--color-panel);overflow:auto;position:relative}.ve-materials{border-right:1px solid var(--color-line);display:flex;flex-direction:column}.ve-properties{border-left:1px solid var(--color-line)}.ve-panel-heading{height:44px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;font-size:12px;flex-shrink:0}.ve-panel-heading>span{display:flex;align-items:center;gap:6px}.ve-panel-heading span,.ve-material-note,.ve-material-foot,.ve-property-content p,.ve-muted{color:var(--color-muted)}.ve-material-note{font-size:11px;padding:0 16px 12px;line-height:1.7}.ve-material-list{padding:0 10px;display:flex;flex-direction:column;gap:8px}.video-editor .ve-material{height:auto;min-height:65px;padding:7px;text-align:left;justify-content:flex-start;white-space:normal;border:1px solid var(--color-line)}.ve-material video{width:64px;height:43px;object-fit:cover;border-radius:4px;background:#000;flex-shrink:0}.ve-material span{flex:1}.ve-material small{display:block;font-size:10px;color:var(--color-muted);margin-top:3px}.ve-material-foot{padding:20px 16px;font-size:11px;line-height:1.8;margin-top:auto}.ve-preview{display:flex;flex-direction:column;overflow:hidden;min-width:0}.ve-preview .ve-panel-heading>span{font-size:10px}.ve-preview-canvas{flex:1;min-height:0;min-width:0;margin:12px 30px 20px;display:flex;align-items:center;justify-content:center;overflow:hidden}.ve-player-controls{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;gap:8px;font-size:11px;font-variant-numeric:tabular-nums;border-top:1px solid var(--color-line)}.ve-player-controls>div{display:flex;gap:4px}.ve-player-controls small{color:var(--color-muted)}.ve-property-content{padding:20px 16px;display:flex;flex-direction:column;gap:18px}.ve-property-tag{font-size:9px;letter-spacing:.14em;color:var(--color-primary)}.ve-property-content h3{font-size:15px}.ve-property-content dl{display:grid;grid-template-columns:1fr auto;gap:12px;font-size:11px}.ve-property-content dt{color:var(--color-muted)}.ve-property-content dd{font-variant-numeric:tabular-nums}.ve-property-content label{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;font-size:11px;color:var(--color-muted)}.ve-property-content input[type=number]{width:86px;background:var(--color-canvas);border:1px solid var(--color-line);border-radius:6px;padding:6px;color:var(--color-ink)}.ve-property-content input[type=range]{width:100%;accent-color:var(--color-primary)}.ve-property-content p{font-size:11px;line-height:1.8}.ve-timeline{height:265px;flex-shrink:0;border-top:1px solid var(--color-line);background:var(--color-panel);display:flex;flex-direction:column}.ve-toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--color-line)}.ve-toolbar>div{display:flex;align-items:center;gap:6px}.ve-toolbar i{height:16px;border-left:1px solid var(--color-line);margin:0 10px}.ve-toolbar [aria-pressed=true]{color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 8%,transparent)}.ve-zoom input{width:100px;accent-color:var(--color-primary)}.ve-zoom span{font-size:10px;color:var(--color-muted);width:55px}.ve-timeline-body{display:flex;flex:1;min-height:0}.ve-track-heading{width:140px;flex-shrink:0;border-right:1px solid var(--color-line);padding:0 14px}.ve-track-heading>span{display:block;height:34px;line-height:34px;font-size:10px;color:var(--color-muted)}.ve-track-heading>div{display:flex;gap:8px;align-items:center;height:70px}.ve-track-heading small{font-size:10px;color:var(--color-muted)}.ve-timeline-viewport{flex:1;overflow:auto;min-width:0}.ve-timeline-content{position:relative;min-height:155px;touch-action:none;user-select:none}.ve-ruler{height:34px;border-bottom:1px solid var(--color-line);position:relative;overflow:hidden}.ve-ruler>span{position:absolute;top:0;height:34px;border-left:1px solid var(--color-line);padding:5px;font-size:9px;font-variant-numeric:tabular-nums;color:var(--color-muted)}.ve-video-track{height:88px;position:relative;background:color-mix(in srgb,var(--color-muted) 3%,transparent);margin-top:10px}.ve-clip{position:absolute;height:76px;top:0;min-width:3px;border-radius:6px;background:var(--color-line);border:1px solid var(--color-muted);overflow:hidden}.ve-clip.is-selected{border:2px solid var(--color-primary);z-index:2}.ve-clip.is-dragging{z-index:4;opacity:.8}.video-editor .ve-clip-body{position:absolute;inset:0;width:100%;height:100%;padding:0;border-radius:0;cursor:grab;touch-action:none;background:transparent;border:0}.ve-clip-label{position:absolute;left:8px;bottom:3px;color:white;font-size:10px;text-shadow:0 1px 3px #000;white-space:nowrap}.ve-thumbnails{position:absolute;inset:0;overflow:hidden}.ve-thumbnails>span{position:absolute;height:100%;overflow:hidden;top:0}.ve-thumbnails img{width:100%;height:100%;object-fit:cover;pointer-events:none}.ve-thumb-placeholder{display:flex;height:100%;align-items:center;justify-content:center;font-size:9px;color:var(--color-muted)}.video-editor .ve-trim{position:absolute;top:0;bottom:0;width:7px;min-width:0;height:100%;border:0;border-radius:0;padding:0;background:var(--color-primary);opacity:0;cursor:ew-resize;touch-action:none}.ve-trim-left{left:0}.ve-trim-right{right:0}.ve-clip.is-selected .ve-trim,.ve-clip:hover .ve-trim{opacity:1}.ve-playhead{position:absolute;top:0;bottom:0;width:1px;background:var(--color-primary);z-index:5;pointer-events:none}.ve-playhead>span{position:absolute;top:0;left:-5px;width:11px;height:13px;background:var(--color-primary);clip-path:polygon(0 0,100% 0,100% 65%,50% 100%,0 65%)}.ve-timeline footer{padding:8px 16px;font-size:10px;color:var(--color-muted);display:flex;justify-content:space-between;border-top:1px solid var(--color-line)}.ve-banner{padding:8px 20px;background:var(--color-panel);color:var(--color-danger);font-size:12px;display:flex;gap:18px}.ve-banner.success{color:var(--color-primary)}.ve-banner a{text-decoration:underline}.ve-loading{padding:100px 24px;text-align:center;display:flex;gap:20px;align-items:center;justify-content:center;flex-direction:column}.ve-recent{font-size:11px;color:var(--color-muted);margin:10px 0}.ve-recent summary{cursor:pointer}.ve-recent a{display:block;padding:7px 0;color:inherit}.generation-video-frame>div{padding-top:12px;text-align:center}
-@media(max-width:1100px){.ve-main{grid-template-columns:180px minmax(0,1fr) 190px}.ve-header{padding:10px}.ve-header-title input{width:130px}.ve-save-state{display:none}.ve-header-actions{gap:4px}.ve-preview-canvas{margin:12px}.ve-player-controls{padding:8px}.ve-player-controls>small{display:none}}
-@media(max-width:800px){.video-editor{overflow:auto;height:auto;min-height:100dvh}.ve-header{flex-wrap:wrap}.ve-header-actions{width:100%;justify-content:flex-end}.ve-main{display:flex;flex-direction:column;overflow:visible;min-height:0}.ve-preview{order:0;height:400px;flex-shrink:0}.ve-materials{order:1;max-height:170px;border-top:1px solid var(--color-line)}.ve-material-list{flex-direction:row}.video-editor .ve-material{min-width:180px}.ve-material-foot,.ve-material-note{display:none}.ve-properties{order:2;border-top:1px solid var(--color-line)}.ve-property-content{padding:12px;flex-direction:row;flex-wrap:wrap;gap:14px}.ve-property-content p,.ve-property-tag{display:none}.ve-property-content dl{min-width:180px}.ve-property-content label{max-width:170px}.ve-timeline{height:250px;min-height:250px}.ve-toolbar{padding:6px}.ve-toolbar button{font-size:10px;padding:0 6px}.ve-toolbar i,.ve-zoom span{display:none}.ve-zoom input{width:65px}.ve-track-heading{width:86px;padding:0 8px}.ve-track-heading small,.ve-timeline footer>span{display:none}}
+.video-editor {
+  height: 100dvh;
+  min-height: 620px;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  overflow: hidden;
+}
+.video-editor button {
+  cursor: pointer;
+}
+.video-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.video-editor button:focus-visible,
+.video-editor input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.video-editor button {
+  border-radius: 7px;
+  font-size: 12px;
+  height: 34px;
+  padding: 0 10px;
+  gap: 6px;
+}
+.ve-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-line);
+  min-height: 65px;
+}
+.ve-header-title,
+.ve-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ve-header-title input {
+  background: transparent;
+  border: 1px solid transparent;
+  color: inherit;
+  font-size: 14px;
+  width: 180px;
+  padding: 6px;
+  border-radius: 5px;
+}
+.ve-header-title input:focus {
+  border-color: var(--color-line);
+}
+.ve-save-state {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.ve-main {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) 240px;
+  min-height: 240px;
+  flex: 1;
+  overflow: hidden;
+}
+.ve-materials,
+.ve-properties {
+  background: var(--color-panel);
+  overflow: auto;
+  position: relative;
+}
+.ve-materials {
+  border-right: 1px solid var(--color-line);
+  display: flex;
+  flex-direction: column;
+}
+.ve-properties {
+  border-left: 1px solid var(--color-line);
+}
+.ve-panel-heading {
+  height: 44px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.ve-panel-heading > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ve-panel-heading span,
+.ve-material-note,
+.ve-material-foot,
+.ve-property-content p,
+.ve-muted {
+  color: var(--color-muted);
+}
+.ve-material-note {
+  font-size: 11px;
+  padding: 0 16px 12px;
+  line-height: 1.7;
+}
+.ve-material-list {
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.video-editor .ve-material {
+  height: auto;
+  min-height: 65px;
+  padding: 7px;
+  text-align: left;
+  justify-content: flex-start;
+  white-space: normal;
+  border: 1px solid var(--color-line);
+}
+.ve-material video {
+  width: 64px;
+  height: 43px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #000;
+  flex-shrink: 0;
+}
+.ve-material span {
+  flex: 1;
+}
+.ve-material small {
+  display: block;
+  font-size: 10px;
+  color: var(--color-muted);
+  margin-top: 3px;
+}
+.ve-material-foot {
+  padding: 20px 16px;
+  font-size: 11px;
+  line-height: 1.8;
+  margin-top: auto;
+}
+.ve-preview {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+.ve-preview .ve-panel-heading > span {
+  font-size: 10px;
+}
+.ve-preview-canvas {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  margin: 12px 30px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.ve-player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  gap: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--color-line);
+}
+.ve-player-controls > div {
+  display: flex;
+  gap: 4px;
+}
+.ve-player-controls small {
+  color: var(--color-muted);
+}
+.ve-property-content {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.ve-property-tag {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--color-primary);
+}
+.ve-property-content h3 {
+  font-size: 15px;
+}
+.ve-property-content dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  font-size: 11px;
+}
+.ve-property-content dt {
+  color: var(--color-muted);
+}
+.ve-property-content dd {
+  font-variant-numeric: tabular-nums;
+}
+.ve-property-content label {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.ve-property-content input[type="number"] {
+  width: 86px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--color-ink);
+}
+.ve-property-content input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-primary);
+}
+.ve-property-content p {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.ve-timeline {
+  height: 265px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-line);
+  background: var(--color-panel);
+  display: flex;
+  flex-direction: column;
+}
+.ve-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--color-line);
+}
+.ve-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ve-toolbar i {
+  height: 16px;
+  border-left: 1px solid var(--color-line);
+  margin: 0 10px;
+}
+.ve-toolbar [aria-pressed="true"] {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+.ve-zoom input {
+  width: 100px;
+  accent-color: var(--color-primary);
+}
+.ve-zoom span {
+  font-size: 10px;
+  color: var(--color-muted);
+  width: 55px;
+}
+.ve-timeline-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.ve-track-heading {
+  width: 140px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--color-line);
+  padding: 0 14px;
+}
+.ve-track-heading > span {
+  display: block;
+  height: 34px;
+  line-height: 34px;
+  font-size: 10px;
+  color: var(--color-muted);
+}
+.ve-track-heading > div {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 70px;
+}
+.ve-track-heading small {
+  font-size: 10px;
+  color: var(--color-muted);
+}
+.ve-timeline-viewport {
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+}
+.ve-timeline-content {
+  position: relative;
+  min-height: 155px;
+  touch-action: none;
+  user-select: none;
+}
+.ve-ruler {
+  height: 34px;
+  border-bottom: 1px solid var(--color-line);
+  position: relative;
+  overflow: hidden;
+}
+.ve-ruler > span {
+  position: absolute;
+  top: 0;
+  height: 34px;
+  border-left: 1px solid var(--color-line);
+  padding: 5px;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+}
+.ve-video-track {
+  height: 88px;
+  position: relative;
+  background: color-mix(in srgb, var(--color-muted) 3%, transparent);
+  margin-top: 10px;
+}
+.ve-clip {
+  position: absolute;
+  height: 76px;
+  top: 0;
+  min-width: 3px;
+  border-radius: 6px;
+  background: var(--color-line);
+  border: 1px solid var(--color-muted);
+  overflow: hidden;
+}
+.ve-clip.is-selected {
+  border: 2px solid var(--color-primary);
+  z-index: 2;
+}
+.ve-clip.is-dragging {
+  z-index: 4;
+  opacity: 0.8;
+}
+.video-editor .ve-clip-body {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: 0;
+  cursor: grab;
+  touch-action: none;
+  background: transparent;
+  border: 0;
+}
+.ve-clip-label {
+  position: absolute;
+  left: 8px;
+  bottom: 3px;
+  color: white;
+  font-size: 10px;
+  text-shadow: 0 1px 3px #000;
+  white-space: nowrap;
+}
+.ve-thumbnails {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.ve-thumbnails > span {
+  position: absolute;
+  height: 100%;
+  overflow: hidden;
+  top: 0;
+}
+.ve-thumbnails img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.ve-thumb-placeholder {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--color-muted);
+}
+.video-editor .ve-trim {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: var(--color-primary);
+  opacity: 0;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.ve-trim-left {
+  left: 0;
+}
+.ve-trim-right {
+  right: 0;
+}
+.ve-clip.is-selected .ve-trim,
+.ve-clip:hover .ve-trim {
+  opacity: 1;
+}
+.ve-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-primary);
+  z-index: 5;
+  pointer-events: none;
+}
+.ve-playhead > span {
+  position: absolute;
+  top: 0;
+  left: -5px;
+  width: 11px;
+  height: 13px;
+  background: var(--color-primary);
+  clip-path: polygon(0 0, 100% 0, 100% 65%, 50% 100%, 0 65%);
+}
+.ve-timeline footer {
+  padding: 8px 16px;
+  font-size: 10px;
+  color: var(--color-muted);
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--color-line);
+}
+.ve-banner {
+  padding: 8px 20px;
+  background: var(--color-panel);
+  color: var(--color-danger);
+  font-size: 12px;
+  display: flex;
+  gap: 18px;
+}
+.ve-banner.success {
+  color: var(--color-primary);
+}
+.ve-banner a {
+  text-decoration: underline;
+}
+.ve-loading {
+  padding: 100px 24px;
+  text-align: center;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+.ve-recent {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin: 10px 0;
+}
+.ve-recent summary {
+  cursor: pointer;
+}
+.ve-recent a {
+  display: block;
+  padding: 7px 0;
+  color: inherit;
+}
+.generation-video-frame > div {
+  padding-top: 12px;
+  text-align: center;
+}
+@media (max-width: 1100px) {
+  .ve-main {
+    grid-template-columns: 180px minmax(0, 1fr) 190px;
+  }
+  .ve-header {
+    padding: 10px;
+  }
+  .ve-header-title input {
+    width: 130px;
+  }
+  .ve-save-state {
+    display: none;
+  }
+  .ve-header-actions {
+    gap: 4px;
+  }
+  .ve-preview-canvas {
+    margin: 12px;
+  }
+  .ve-player-controls {
+    padding: 8px;
+  }
+  .ve-player-controls > small {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .video-editor {
+    overflow: auto;
+    height: auto;
+    min-height: 100dvh;
+  }
+  .ve-header {
+    flex-wrap: wrap;
+  }
+  .ve-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .ve-main {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    min-height: 0;
+  }
+  .ve-preview {
+    order: 0;
+    height: 400px;
+    flex-shrink: 0;
+  }
+  .ve-materials {
+    order: 1;
+    max-height: 170px;
+    border-top: 1px solid var(--color-line);
+  }
+  .ve-material-list {
+    flex-direction: row;
+  }
+  .video-editor .ve-material {
+    min-width: 180px;
+  }
+  .ve-material-foot,
+  .ve-material-note {
+    display: none;
+  }
+  .ve-properties {
+    order: 2;
+    border-top: 1px solid var(--color-line);
+  }
+  .ve-property-content {
+    padding: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .ve-property-content p,
+  .ve-property-tag {
+    display: none;
+  }
+  .ve-property-content dl {
+    min-width: 180px;
+  }
+  .ve-property-content label {
+    max-width: 170px;
+  }
+  .ve-timeline {
+    height: 250px;
+    min-height: 250px;
+  }
+  .ve-toolbar {
+    padding: 6px;
+  }
+  .ve-toolbar button {
+    font-size: 10px;
+    padding: 0 6px;
+  }
+  .ve-toolbar i,
+  .ve-zoom span {
+    display: none;
+  }
+  .ve-zoom input {
+    width: 65px;
+  }
+  .ve-track-heading {
+    width: 86px;
+    padding: 0 8px;
+  }
+  .ve-track-heading small,
+  .ve-timeline footer > span {
+    display: none;
+  }
+}
+
+.ve-playhead {
+  width: 11px;
+  margin-left: -5px;
+  background: transparent;
+  pointer-events: auto;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.ve-playhead:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 1px;
+  background: var(--color-primary);
+}
+.ve-playhead > span {
+  left: 0;
+}

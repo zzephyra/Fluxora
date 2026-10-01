@@ -98,7 +98,14 @@ async def render(composition: dict, inputs: dict[str, Path], directory: Path) ->
                 or clip["original_duration"] != info["frames"]
             ):
                 raise ValueError("Source frame range is invalid")
-            args += ["-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,webm", "-i", str(inputs[clip["asset_id"]])]
+            args += [
+                "-protocol_whitelist",
+                "file,pipe",
+                "-format_whitelist",
+                "mov,matroska,webm",
+                "-i",
+                str(inputs[clip["asset_id"]]),
+            ]
             if not info["audio"]:
                 args += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
             start, end = clip["source_start_frame"], clip["source_end_frame"]

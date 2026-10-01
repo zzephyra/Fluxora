@@ -15,7 +15,7 @@
 .workspace-main{margin-left:96px}
 .workspace-header{height:70px;border-bottom:0;padding:0 36px}
 .workspace-create{position:relative;isolation:isolate;min-height:calc(100svh - 70px);background:none}
-.workspace-create:before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:620px;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--color-canvas) 50%,transparent),var(--color-canvas) 95%),url('/images/fluxora-world.png') center 45%/cover;opacity:.35}
+.workspace-create:before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:620px;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--color-canvas) 50%,transparent),var(--color-canvas) 95%),url('/images/lumi-world.png') center 45%/cover;opacity:.35}
 .create-toolbar{padding:12px 36px}
 .creative-center{width:min(1100px,calc(100% - 96px));margin:0 auto;padding:42px 0 14px}
 .creative-center h1{font-size:clamp(28px,3.5vw,46px);font-weight:600;letter-spacing:-1.5px;margin:16px 0 12px}
@@ -259,3 +259,5 @@ button.project-switch{border:0;background:transparent;color:inherit;font:inherit
   .workspace .workspace-role { display:none; }
   .workspace .workspace-header-actions { gap:0; }
 }
+
+.workspace-brand{display:flex;flex-direction:column;gap:5px;height:auto;font-size:16px;letter-spacing:-.04em}

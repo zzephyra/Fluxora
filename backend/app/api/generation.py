@@ -5,6 +5,7 @@ from fastapi import APIRouter, Header, Query, Response
 from fastapi.responses import Response as RawResponse
 
 from app.api.deps import (
+    GenerationInputDep,
     ImageGenerationDep,
     MutationDep,
     PrincipalDep,
@@ -18,8 +19,11 @@ from app.modules.generation.models import GenerationTask
 from app.modules.generation.schemas import (
     CreateGenerationRequest,
     GenerationErrorBody,
+    GenerationInputResponse,
     GenerationTaskList,
     GenerationTaskResponse,
+    ImageEditorOption,
+    SaveGenerationInputRequest,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["generation"])
@@ -54,6 +58,7 @@ async def create_generation_task(
             prompt=payload.prompt,
             parameters=payload.parameters,
             idempotency_key=idempotency_key,
+            input_id=payload.input_id,
         )
     else:
         row = await generations.submit(
@@ -63,6 +68,7 @@ async def create_generation_task(
             prompt=payload.prompt,
             parameters=payload.parameters,
             idempotency_key=idempotency_key,
+            input_id=payload.input_id,
         )
     outputs = await generations.output_ids(uow, project_id=project_id, task_ids=[row.id])
     no_store(response)
@@ -157,15 +163,19 @@ async def read_asset_content(
     if range_header:
         import re
 
-        match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header)
+        match = re.fullmatch(r"bytes=(\d{0,20})-(\d{0,20})", range_header)
         size = len(content)
         if match and (match[1] or match[2]):
             start = int(match[1]) if match[1] else max(0, size - int(match[2]))
             end = min(size - 1, int(match[2])) if match[1] and match[2] else size - 1
             if 0 <= start <= end < size and not (not match[1] and match[2] == "0"):
                 headers["Content-Range"] = f"bytes {start}-{end}/{size}"
-                return RawResponse(content=content[start:end + 1], status_code=206,
-                                   media_type=mime, headers=headers)
+                return RawResponse(
+                    content=content[start : end + 1],
+                    status_code=206,
+                    media_type=mime,
+                    headers=headers,
+                )
         return RawResponse(status_code=416, headers={**headers, "Content-Range": f"bytes */{size}"})
     return RawResponse(content=content, media_type=mime, headers=headers)
 
@@ -192,3 +202,44 @@ def _response(row: GenerationTask, output_ids: list[UUID]) -> GenerationTaskResp
         prompt=prompt if isinstance(prompt, str) else "",
         kind=row.kind if row.kind in {"image", "video"} else "image",
     )
+
+
+@router.post(
+    "/projects/{project_id}/generation-inputs",
+    response_model=GenerationInputResponse,
+    status_code=201,
+)
+async def save_generation_input(
+    project_id: UUID,
+    payload: SaveGenerationInputRequest,
+    response: Response,
+    uow: UowDep,
+    principal: MutationDep,
+    projects: ProjectServiceDep,
+    inputs: GenerationInputDep,
+):
+    await projects.get_project(uow, principal.user_id, project_id)
+    row = await inputs.save(
+        uow,
+        project_id=project_id,
+        actor_id=principal.user_id,
+        input_id=payload.id,
+        image_base64=payload.image_base64,
+        mask_base64=payload.mask_base64,
+    )
+    no_store(response)
+    return GenerationInputResponse(id=row.id, width=row.width, height=row.height)
+
+
+@router.get("/projects/{project_id}/image-editor-options", response_model=list[ImageEditorOption])
+async def image_editor_options(
+    project_id: UUID,
+    response: Response,
+    uow: UowDep,
+    principal: PrincipalDep,
+    projects: ProjectServiceDep,
+    inputs: GenerationInputDep,
+):
+    await projects.get_project(uow, principal.user_id, project_id)
+    no_store(response)
+    return await inputs.options(uow)

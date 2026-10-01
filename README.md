@@ -1,6 +1,11 @@
 <div align="center">
 
-<img src="docs/assets/fluxora-banner.svg" alt="Fluxora — From context to cinema. 按项目组织的 AI 视频创作工作台" width="100%" />
+# Lumi by Lumisene
+
+Imagine it. Lumi brings it to life.
+
+
+<img src="docs/assets/lumi-banner.svg" alt="Lumi — From context to cinema. 按项目组织的 AI 视频创作工作台" width="100%" />
 
 <br />
 
@@ -14,18 +19,18 @@
 ![React](https://img.shields.io/badge/Frontend-React%20%28planned%29-61DAFB?style=flat-square&logo=react&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/Source%20of%20Truth-PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 
-[项目理念](#-为什么是-fluxora) · [能力规划](#-围绕一个项目完成创作) · [系统架构](#-架构一览) · [快速开始](#-快速开始) · [开发路线](#-开发路线) · [文档地图](#-文档地图)
+[项目理念](#-为什么是-lumi) · [能力规划](#-围绕一个项目完成创作) · [系统架构](#-架构一览) · [快速开始](#-快速开始) · [开发路线](#-开发路线) · [文档地图](#-文档地图)
 
 </div>
 
 > [!IMPORTANT]
 > **当前处于 Foundation 阶段。** 仓库已有后端基础骨架与架构规范；视频生成、对话、RAG、项目记忆、Worker 和 React 前端尚未完整实现。下方产品流程与架构图展示目标设计，头图是品牌插画，并非产品截图。
 
-## ✦ 为什么是 Fluxora
+## ✦ 为什么是 Lumi
 
 一次视频创作往往不止一个提示词：它还包含角色设定、参考素材、镜头要求、历史讨论，以及反复确认过的视觉风格。
 
-Fluxora 希望把这些内容组织在同一个项目中，让对话能够找到资料，让生成能够引用上下文，让确认过的设定能够在下一次创作中继续使用。
+Lumi 希望把这些内容组织在同一个项目中，让对话能够找到资料，让生成能够引用上下文，让确认过的设定能够在下一次创作中继续使用。
 
 - **项目就是边界。** 对话、知识、记忆与资源按项目隔离，避免不同创作的设定混在一起。
 - **资料可以追溯。** RAG 回答引用文档版本与具体分块，区分“有项目证据”和“一般回答”。
@@ -293,10 +298,24 @@ README 负责介绍和导航，具体规则在对应规范中维护。开始实�
 
 ---
 
+### 视频剪辑工作流
+
+在生成结果上点击 **编辑视频**，进入项目内时间线编辑器。支持真实视频缩略图、逐帧预览、拖动/裁剪/分割、音量与静音、撤销/重做、工程保存和异步 MP4 导出。已有工程可从生成页的“已保存的剪辑工程”继续打开。
+
+- `docker compose up -d --build api editor-worker frontend` 启动 API、FFmpeg 导出进程和前端；需先启动数据库与对象存储。
+- 首版固定 30 FPS、单视频轨道，工程最多 10 分钟 / 100 片段。字幕、转场与独立音轨尚未开放。
+- 工程与任务进入 PostgreSQL，成片进入私有对象存储；刷新后仍可查看最新导出结果。
+- 契约、恢复限制、测试及 OpenAPI 类型生成见 [视频编辑器规范](docs/specs/video-editor.md)。
+
+
 <div align="center">
 
-**Fluxora · From context to cinema.**
+**Lumi by Lumisene · Imagine it. Lumi brings it to life.**
 
 <sub>让每次创作，都从项目已有的知识与设定出发。</sub>
 
 </div>
+
+## 品牌与兼容性
+
+产品品牌为 **Lumi**，公司品牌为 **Lumisene**，官方域名为 `lumisene.com`。参见 [品牌规范](docs/specs/branding.md)。仓库目录、数据库、Cookie、历史迁移与对象存储标识保留旧命名以兼容现有数据。

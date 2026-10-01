@@ -1,9 +1,10 @@
+import { brand } from "../../brand";
 import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../../components/ui/button";
 
 const scenes = [
-  { image: "/images/fluxora-world.png", alt: "旅人站在赤色太阳下的悬崖上", tag: "01 / BEYOND THE HORIZON", title: "每一个世界，\n都始于你的想象。", description: "从一个念头出发，让对话、资料与记忆，陪你走向下一帧。", credit: "FLUXORA ORIGINAL · AI 概念图" },
+  { image: "/images/lumi-world.png", alt: "旅人站在赤色太阳下的悬崖上", tag: "01 / BEYOND THE HORIZON", title: "每一个世界，\n都始于你的想象。", description: "从一个念头出发，让对话、资料与记忆，陪你走向下一帧。", credit: `${brand.name} ORIGINAL · AI 概念图` },
   { image: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=1600&q=85", alt: "深蓝夜空中的星光与远方地平线", tag: "02 / AFTER HOURS", title: "让未说完的故事，\n拥有下一幕。", description: "留住那些一闪而过的想法，在同一个项目里继续创作。", credit: "UNSPLASH · 情绪参考" },
   { image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=85", alt: "清晨阳光穿过森林与绿色树叶", tag: "03 / NATURAL FREQUENCY", title: "记住你的风格，\n发现新的可能。", description: "让重要的设定有迹可循，也给下一次灵感留下空间。", credit: "UNSPLASH · 情绪参考" },
 ];

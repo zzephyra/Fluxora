@@ -9,7 +9,7 @@ from app.modules.auth.service import AuthService
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Create a Fluxora user or grant platform admin")
+    parser = argparse.ArgumentParser(description="Create a Lumi user or grant platform admin")
     parser.add_argument("--email", required=True)
     parser.add_argument("--password")
     parser.add_argument("--platform-admin", action="store_true")

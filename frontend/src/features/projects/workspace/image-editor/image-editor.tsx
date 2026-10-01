@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "../../../../components/ui/dropdown-menu";
 import { isApiError } from "../../../../lib/api";
-import { requestErase, requestInpaint, requestOutpaint } from "../../image-edit";
+import { requestErase, requestOutpaint } from "../../image-edit";
 import { BrushSettings } from "./brush-settings";
 import { EditorCanvas } from "./editor-canvas";
 import { useCrop } from "./hooks/use-crop";
@@ -22,7 +22,11 @@ import { downloadBlob, exportImage, type ImageMime } from "./utils/export-image"
 import { exportMask } from "./utils/export-mask";
 import { frameForRatio } from "./utils/strokes";
 
-export function ImageEditor({ src }: { src: string }) {
+import { GenerationAction, type ImageAction } from "./generation-action";
+import type { GenerationTask } from "../../image-generation";
+
+export function ImageEditor({ src, projectId, onResult }: { src: string; projectId: string; onResult: (task: GenerationTask) => void }) {
+  const [action, setAction] = useState<ImageAction | null>(null);
   const [objectUrl, setObjectUrl] = useState("");
   const [loadFailed, setLoadFailed] = useState(false);
   const [image] = useImage(objectUrl);
@@ -130,14 +134,14 @@ export function ImageEditor({ src }: { src: string }) {
     }
     const blob = await exportImage(documentState.source, documentState.width, documentState.height, mime);
     const extension = mime === "image/png" ? "png" : mime === "image/jpeg" ? "jpg" : "webp";
-    downloadBlob(blob, `fluxora.${extension}`);
+    downloadBlob(blob, `lumi.${extension}`);
   }
 
   async function saveMask() {
     if (!documentState) {
       return;
     }
-    downloadBlob(await exportMask(documentState.width, documentState.height, documentState.strokes), "fluxora-mask.png");
+    downloadBlob(await exportMask(documentState.width, documentState.height, documentState.strokes), "lumi-mask.png");
   }
 
   async function submitErase() {
@@ -159,13 +163,14 @@ export function ImageEditor({ src }: { src: string }) {
   }
 
   async function submitInpaint() {
-    if (!documentState || prompt.trim().length === 0) {
+    if (busy || !documentState || !documentState.strokes.some(stroke => stroke.mode === "add") || prompt.trim().length === 0) {
       return;
     }
     setBusy(true);
     setNotice(null);
     try {
-      await requestInpaint({
+      setAction({
+        kind: "image",
         image: await exportImage(documentState.source, documentState.width, documentState.height, "image/png"),
         mask: await exportMask(documentState.width, documentState.height, documentState.strokes),
         prompt: prompt.trim(),
@@ -210,6 +215,7 @@ export function ImageEditor({ src }: { src: string }) {
 
   return (
     <div className="image-editor">
+      {action && <GenerationAction projectId={projectId} input={action} onClose={() => setAction(null)} onResult={task => { setAction(null); onResult(task); }} />}
       <EditorCanvas
         brushSize={brushSize}
         cropRatio={crop.ratio}
@@ -245,7 +251,7 @@ export function ImageEditor({ src }: { src: string }) {
       {notice ? <p className="image-editor-note" role="status">{notice}</p> : null}
       <div className="image-editor-dock">
       {tool === "inpaint" ? (
-        <PromptBar busy={busy} onChange={setPrompt} onSubmit={() => void submitInpaint()} value={prompt} />
+        <PromptBar busy={busy} hasSelection={documentState.strokes.some(stroke => stroke.mode === "add")} onChange={setPrompt} onSubmit={() => void submitInpaint()} value={prompt} />
       ) : null}
       {tool === "erase" || tool === "inpaint" ? (
         <BrushSettings brushSize={brushSize} mode={maskMode} onBrushSize={setBrushSize} onMode={setMaskMode} />
@@ -294,7 +300,13 @@ export function ImageEditor({ src }: { src: string }) {
         </div>
       ) : null}
       <div className="image-editor-toolbar" role="toolbar" aria-label="图片编辑">
-        <button disabled title="视频生成尚未开放" type="button">生成视频</button>
+        <button disabled={busy} onClick={() => {
+          setBusy(true);
+          void exportImage(documentState.source, documentState.width, documentState.height, "image/png")
+            .then(image => setAction({ image, prompt: "", kind: "video" }))
+            .catch(() => setNotice("图片导出失败，请重试"))
+            .finally(() => setBusy(false));
+        }} type="button">生成视频</button>
         <button aria-pressed={tool === "inpaint"} onClick={() => selectTool("inpaint")} type="button">局部重绘</button>
         <button aria-pressed={tool === "outpaint"} onClick={() => selectTool("outpaint")} type="button">扩图</button>
         <button aria-pressed={tool === "erase"} onClick={() => selectTool("erase")} type="button">消除笔</button>

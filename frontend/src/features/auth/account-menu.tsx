@@ -1,5 +1,7 @@
+import { LumiLogo } from "../../components/brand/LumiLogo";
+import { brand } from "../../brand";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, CircleAlert, Layers3, LogOut, SlidersHorizontal } from "lucide-react";
+import { ChevronRight, CircleAlert, LogOut, SlidersHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Link, useMatch, useNavigate } from "react-router";
 
@@ -16,12 +18,11 @@ import { useSession } from "./use-session";
 export function BrandLink() {
   return (
     <Link
-      aria-label="Fluxora 首页"
+      aria-label={`${brand.name} 首页`}
       className="inline-flex items-center gap-2 text-[26px] font-semibold tracking-[-1.5px] text-ink"
       to="/"
     >
-      <Layers3 aria-hidden className="text-primary" size={22} />
-      fluxora
+      <LumiLogo />
     </Link>
   );
 }

@@ -223,7 +223,7 @@ describe("ProjectsPage", () => {
     });
     renderAt(`/projects/${projectId}`);
 
-    expect(await screen.findByRole("heading", { name: "你好，今天想创作什么？" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "和 Lumi 一起开始创作" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创作空间" })).toHaveTextContent("个人空间");
   });
 
@@ -262,7 +262,7 @@ describe("ProjectsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "无法打开个人空间" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "重试" }));
-    expect(await screen.findByRole("heading", { name: "你好，今天想创作什么？" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "和 Lumi 一起开始创作" })).toBeInTheDocument();
     expect(ensurePersonalSpace).toHaveBeenCalledTimes(2);
   });
 
@@ -278,7 +278,7 @@ describe("ProjectsPage", () => {
     });
     renderAt(`/projects/${projectId}`);
 
-    expect(await screen.findByRole("heading", { name: "你好，今天想创作什么？" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "和 Lumi 一起开始创作" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "创作需求" })).toBeInTheDocument();
     expect(screen.queryByText(/当前文本模型/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "发送给模型" })).not.toBeInTheDocument();

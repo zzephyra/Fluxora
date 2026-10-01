@@ -4,11 +4,157 @@ import { useEditor, useEditorStore } from "./store";
 import { editClip, withClips } from "./edits";
 import { timecode } from "./time";
 export function PropertiesPanel() {
-  const selected = useEditor(s => s.selected); const composition = useEditor(s => s.draft.composition); const store = useEditorStore();
-  const clip = composition.tracks[0].clips.find(c => c.id === selected);
+  const selected = useEditor((s) => s.selected);
+  const composition = useEditor((s) => s.draft.composition);
+  const store = useEditorStore();
+  const clip = composition.tracks[0].clips.find((c) => c.id === selected);
   const [volume, setVolume] = useState(100);
-  useEffect(() => setVolume(Math.round((clip?.volume ?? 1) * 100)), [clip?.id, clip?.volume]);
-  const apply = (patch: { volume?: number; muted?: boolean }) => { if (!clip) return; const s = store.getState(); s.edit({ ...s.draft, composition: withClips(s.draft.composition, s.draft.composition.tracks[0].clips.map(c => c.id === clip.id ? { ...c, ...patch } : c)) }); };
-  const trim = (side: "left" | "right", value: number) => { if (!clip || !Number.isFinite(value)) return; const s = store.getState(); const delta = side === "left" ? value - clip.source_start_frame : value - clip.source_end_frame; s.edit({ ...s.draft, composition: editClip(s.draft.composition, clip.id, Math.round(delta), side, s.frame, s.scale, false) }); };
-  return <aside className="ve-properties"><div className="ve-panel-heading">片段属性</div>{clip ? <div className="ve-property-content"><span className="ve-property-tag">VIDEO CLIP</span><h3>视频片段</h3><dl><dt>时间线起点</dt><dd>{timecode(clip.timeline_start_frame)}</dd><dt>片段时长</dt><dd>{timecode(clip.duration)}</dd><dt>原始时长</dt><dd>{timecode(clip.original_duration)}</dd></dl><label>位置（帧）<input key={`${clip.id}-position-${clip.timeline_start_frame}`} type="number" min="0" max="17999" defaultValue={clip.timeline_start_frame} onBlur={e => { const value = Number(e.target.value); if (!Number.isFinite(value)) return; const s = store.getState(); s.edit({ ...s.draft, composition: editClip(s.draft.composition, clip.id, Math.round(value) - clip.timeline_start_frame, "move", s.frame, s.scale, false) }); }} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} /></label><label>源起点（帧）<input key={`${clip.id}-start-${clip.source_start_frame}`} type="number" min="0" max={clip.source_end_frame - 1} defaultValue={clip.source_start_frame} onBlur={e => trim("left", Number(e.target.value))} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} /></label><label>源终点（帧，不含）<input key={`${clip.id}-end-${clip.source_end_frame}`} type="number" min={clip.source_start_frame + 1} max={clip.original_duration} defaultValue={clip.source_end_frame} onBlur={e => trim("right", Number(e.target.value))} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} /></label><label>音量 <span>{volume}%</span><input type="range" min="0" max="100" value={volume} onChange={e => setVolume(Number(e.target.value))} onPointerUp={() => apply({ volume: volume / 100 })} onKeyUp={() => apply({ volume: volume / 100 })} onBlur={() => apply({ volume: volume / 100 })} /></label><Button variant="outline" aria-pressed={clip.muted} onClick={() => apply({ muted: !clip.muted })}>{clip.muted ? "恢复原声" : "静音原声"}</Button><p>裁剪不会修改原始素材。拖动片段两端可调整入点和出点。</p></div> : <div className="ve-property-content ve-muted"><h3>精确到每一帧</h3><p>选择时间线中的片段，调整裁剪范围与声音。</p><dl><dt>工程尺寸</dt><dd>{composition.width} × {composition.height}</dd><dt>帧率</dt><dd>30 FPS</dd></dl></div>}</aside>;
+  useEffect(
+    () => setVolume(Math.round((clip?.volume ?? 1) * 100)),
+    [clip?.id, clip?.volume],
+  );
+  const apply = (patch: { volume?: number; muted?: boolean }) => {
+    if (!clip) return;
+    const s = store.getState();
+    s.edit({
+      ...s.draft,
+      composition: withClips(
+        s.draft.composition,
+        s.draft.composition.tracks[0].clips.map((c) =>
+          c.id === clip.id ? { ...c, ...patch } : c,
+        ),
+      ),
+    });
+  };
+  const trim = (side: "left" | "right", value: number) => {
+    if (!clip || !Number.isFinite(value)) return;
+    const s = store.getState();
+    const delta =
+      side === "left"
+        ? value - clip.source_start_frame
+        : value - clip.source_end_frame;
+    s.edit({
+      ...s.draft,
+      composition: editClip(
+        s.draft.composition,
+        clip.id,
+        Math.round(delta),
+        side,
+        s.frame,
+        s.scale,
+        false,
+      ),
+    });
+  };
+  return (
+    <aside className="ve-properties">
+      <div className="ve-panel-heading">片段属性</div>
+      {clip ? (
+        <div className="ve-property-content">
+          <span className="ve-property-tag">VIDEO CLIP</span>
+          <h3>视频片段</h3>
+          <dl>
+            <dt>时间线起点</dt>
+            <dd>{timecode(clip.timeline_start_frame)}</dd>
+            <dt>片段时长</dt>
+            <dd>{timecode(clip.duration)}</dd>
+            <dt>原始时长</dt>
+            <dd>{timecode(clip.original_duration)}</dd>
+          </dl>
+          <label>
+            位置（帧）
+            <input
+              key={`${clip.id}-position-${clip.timeline_start_frame}`}
+              type="number"
+              min="0"
+              max="17999"
+              defaultValue={clip.timeline_start_frame}
+              onBlur={(e) => {
+                const value = Number(e.target.value);
+                if (!Number.isFinite(value)) return;
+                const s = store.getState();
+                s.edit({
+                  ...s.draft,
+                  composition: editClip(
+                    s.draft.composition,
+                    clip.id,
+                    Math.round(value) - clip.timeline_start_frame,
+                    "move",
+                    s.frame,
+                    s.scale,
+                    false,
+                  ),
+                });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+            />
+          </label>
+          <label>
+            源起点（帧）
+            <input
+              key={`${clip.id}-start-${clip.source_start_frame}`}
+              type="number"
+              min="0"
+              max={clip.source_end_frame - 1}
+              defaultValue={clip.source_start_frame}
+              onBlur={(e) => trim("left", Number(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+            />
+          </label>
+          <label>
+            源终点（帧，不含）
+            <input
+              key={`${clip.id}-end-${clip.source_end_frame}`}
+              type="number"
+              min={clip.source_start_frame + 1}
+              max={clip.original_duration}
+              defaultValue={clip.source_end_frame}
+              onBlur={(e) => trim("right", Number(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+            />
+          </label>
+          <label>
+            音量 <span>{volume}%</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              onPointerUp={() => apply({ volume: volume / 100 })}
+              onKeyUp={() => apply({ volume: volume / 100 })}
+              onBlur={() => apply({ volume: volume / 100 })}
+            />
+          </label>
+          <Button
+            variant="outline"
+            aria-pressed={clip.muted}
+            onClick={() => apply({ muted: !clip.muted })}
+          >
+            {clip.muted ? "恢复原声" : "静音原声"}
+          </Button>
+          <p>裁剪不会修改原始素材。拖动片段两端可调整入点和出点。</p>
+        </div>
+      ) : (
+        <div className="ve-property-content ve-muted">
+          <h3>精确到每一帧</h3>
+          <p>选择时间线中的片段，调整裁剪范围与声音。</p>
+          <dl>
+            <dt>工程尺寸</dt>
+            <dd>
+              {composition.width} × {composition.height}
+            </dd>
+            <dt>帧率</dt>
+            <dd>30 FPS</dd>
+          </dl>
+        </div>
+      )}
+    </aside>
+  );
 }

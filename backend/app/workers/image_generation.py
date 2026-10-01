@@ -4,8 +4,9 @@ import asyncio
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
-from app.infrastructure.db.session import create_db_engine, create_session_factory
+from app.infrastructure.db.session import UnitOfWork, create_db_engine, create_session_factory
 from app.infrastructure.storage.s3 import S3Storage
+from app.modules.generation.inputs import GenerationInputService
 from app.modules.generation.service import ImageGenerationService
 
 logger = get_logger(__name__)
@@ -20,8 +21,18 @@ async def _run() -> None:
     await _wait_for_bucket(storage)
     service = ImageGenerationService(settings, session_factory=session_factory, storage=storage)
     logger.info("image_generation_worker_started")
+    cleanup_at = 0.0
     try:
         while True:
+            now = asyncio.get_running_loop().time()
+            if now >= cleanup_at:
+                try:
+                    async with session_factory() as session:
+                        await GenerationInputService(settings, storage).prune(UnitOfWork(session))
+                except Exception as exc:
+                    logger.warning("generation_input_cleanup_failed", error_type=type(exc).__name__)
+                cleanup_at = now + 3600
+
             task_ids = await service.queued_ids()
             if not task_ids:
                 await asyncio.sleep(1)

@@ -1,7 +1,8 @@
+import { brand } from "../../brand";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Library, LoaderCircle, Menu, Monitor, MoreHorizontal, Plus, Power, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Library, LoaderCircle, Menu, Monitor, MoreHorizontal, Plus, Power, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Link, NavLink, Navigate, Outlet, useLocation, useOutletContext } from "react-router";
+import { Link, Navigate, Outlet, useLocation, useOutletContext } from "react-router";
 
 import {
   AlertDialog,
@@ -13,7 +14,7 @@ import {
 } from "../../components/ui/alert-dialog";
 import { Button } from "../../components/ui/button";
 import { Field, fieldErrorId } from "../../components/ui/field";
-import { FluxoraMark } from "../../components/ui/fluxora-mark";
+import { LumiMark } from "../../components/brand/LumiLogo";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import "./admin.css";
@@ -41,23 +42,14 @@ import {
 
 const CAPABILITIES = [
   ["text_generation", "文本生成"],
-  ["text_to_image", "图像生成"],
-  ["text_to_video", "文生视频"],
-  ["image_to_video", "图生视频"],
+  ["text_to_image", "图片生成"],
+  ["text_to_video", "视频生成"],
   ["embedding", "向量"],
   ["speech_synthesis", "语音合成"],
   ["speech_recognition", "语音识别"],
 ] as const;
 
-const NAV = [
-  ["/admin/models", "模型目录", Library],
-  ["/admin/assignments", "业务指定", SlidersHorizontal],
-] as const;
-
-const PAGE_TITLE: Record<string, string> = {
-  "/admin/models": "Models",
-  "/admin/assignments": "业务指定",
-};
+import { ADMIN_GROUPS, ADMIN_MODULES } from "./admin-navigation";
 
 type AdminContext = { items: ModelConfig[] };
 
@@ -83,7 +75,7 @@ export function ModelAdminPage() {
   );
 }
 
-function useAdminItems() {
+export function useAdminItems() {
   return useOutletContext<AdminContext>().items;
 }
 
@@ -122,41 +114,33 @@ export function AssignmentScreen() {
 function AdminFrame({ children }: { children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false);
   const { pathname } = useLocation();
-  const title = PAGE_TITLE[pathname] ?? "Models";
+  const title = ADMIN_MODULES.find((item) => item.path === pathname.replace(/\/$/, ""))?.title ?? "控制台总览";
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   function sidebarContent() { return <>
         <div className="flex h-16 items-center justify-between gap-3 px-5">
           <div className="flex items-center gap-3">
-            <FluxoraMark className="size-7 text-primary" />
+            <LumiMark className="size-7 text-primary" />
             <div>
-              <p className="text-sm font-semibold tracking-tight text-ink">Fluxora</p>
+              <p className="text-sm font-semibold tracking-tight text-ink">{brand.name}</p>
               <p className="text-[11px] tracking-[0.16em] text-muted">管理控制台</p>
             </div>
           </div>
 
         </div>
-        <p className="admin-nav-label">模型管理</p>
-        <nav aria-label="管理导航" className="flex flex-1 flex-col gap-1 px-3 py-2">
-          {NAV.map(([href, label, Icon]) => (
-            <NavLink
-              className={({ isActive }) =>
-                cn(
-                  "flex h-10 items-center gap-3 rounded-lg px-3 text-sm hover:bg-canvas",
-                  isActive ? "bg-canvas text-ink font-medium" : "text-muted hover:text-ink",
-                )
-              }
-              end
-              key={href}
-              onClick={() => setNavOpen(false)}
-              to={href}
-            >
-              <Icon aria-hidden size={16} />
-              {label}
-            </NavLink>
-          ))}
+        <nav aria-label="管理导航" className="admin-navigation">
+          {ADMIN_GROUPS.map(group => <div key={group}>
+            <p className="admin-nav-label">{group}</p>
+            {ADMIN_MODULES.filter(item => item.group === group).map(({ path, title, icon: Icon, planned }) => (
+              <Link key={path} to={path} aria-current={pathname.replace(/\/$/, "") === path ? "page" : undefined} onClick={() => setNavOpen(false)}
+                className={cn("admin-navigation-link", pathname.replace(/\/$/, "") === path && "is-active")}>
+                <Icon aria-hidden size={17} /><span>{title}</span>
+                {planned && <span className="admin-nav-planned">待接入</span>}
+              </Link>
+            ))}
+          </div>)}
         </nav>
-        <div className="admin-sidebar-footer"><Link to="/studio"><ArrowLeft size={16} /> 返回工作区</Link><Button variant="ghost" onClick={() => setTheme(theme === "light" ? "dark" : "light")}><Monitor size={16} /> 切换至{theme === "light" ? "深色" : "浅色"}模式</Button><p>登记和指定不会向供应商发起调用。</p></div>
+        <div className="admin-sidebar-footer"><Link to="/studio"><ArrowLeft size={16} /> 返回工作区</Link><Button variant="ghost" onClick={() => setTheme(theme === "light" ? "dark" : "light")}><Monitor size={16} /> 切换至{theme === "light" ? "深色" : "浅色"}模式</Button><p>{brand.name} · 创作平台管理</p></div>
   </>; }
 
   return (
@@ -450,7 +434,7 @@ function BusinessAssignments({
     <section id="admin-assignments"><div className="admin-page-heading"><div><h1>业务指定</h1><p>为每项业务指定可用的模型配置。</p></div></div><div className="admin-assignment-list">
       <div className="border-b border-line px-5 py-4">
         <p className="text-xs leading-5 text-muted">
-          每项业务只能指定一个已启用、且能力相同的模型。成员不能改选。视频、语音和向量的指定不会打开这些调用。
+          图片生成与局部重绘共用图片模型，文生视频与图生视频共用视频模型，所有入口自动使用统一配置。模型需支持相应操作；语音和向量暂未接入调用。
         </p>
       </div>
       {pending ? <div role="status" aria-label="正在读取业务模型">{Array.from({ length: 5 }, (_, index) => <div className="admin-skeleton admin-skeleton-row" key={index} />)}</div> : null}

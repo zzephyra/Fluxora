@@ -1,11 +1,14 @@
+import { brand } from "../../../brand";
 import { EditVideoButton, RecentEdits } from "../../video-editor";
-import { Check, Copy, Film, Image, Plus, Sparkles, Trash2, WandSparkles } from "lucide-react";
+import { Check, Copy, Film, Image, Plus, Sparkles, Trash2, WandSparkles, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import { GenerationLoadingCard, generationAspectRatio } from "../../../components/generation-loading";
 import { Button } from "../../../components/ui/button";
-import { FluxoraMark } from "../../../components/ui/fluxora-mark";
+import { LumiMark } from "../../../components/brand/LumiLogo";
 import { userFacingMessage } from "../../../lib/api";
+import { formatBytes } from "../../uploads";
+import type { ReferenceAsset } from "./reference-asset";
 import { imageParameters, type RatioId, type ResolutionId } from "../image-settings";
 import {
   assetContentPath,
@@ -35,12 +38,16 @@ export function GenerationPage({
   setGenerationType,
   prompt,
   setPrompt,
+  referenceAsset = null,
+  onClearReference,
 }: {
   projectId: string;
   generationType: "video" | "image";
   setGenerationType: (value: "video" | "image") => void;
   prompt: string;
   setPrompt: (value: string) => void;
+  referenceAsset?: ReferenceAsset | null;
+  onClearReference?: () => void;
 }) {
   const [model, setModel] = useState<ImageModel | null>(null);
   const [pending, setPending] = useState(false);
@@ -270,6 +277,21 @@ export function GenerationPage({
           </div>
           <div className="studio-prompt-panel">
           <div className="studio-mode-caption"><span>{generationType === "video" ? "文生视频" : "文生图片"}</span><span>从文字开始创作</span></div>
+          {referenceAsset ? (
+            <figure className="reference-selected">
+              <ReferencePreview asset={referenceAsset} />
+              <figcaption>
+                <strong>{referenceAsset.name}</strong>
+                <span>{formatBytes(referenceAsset.size)}</span>
+                <small>{referenceNote(referenceAsset.category)}</small>
+              </figcaption>
+              {onClearReference ? (
+                <button aria-label="移除参考素材" className="reference-clear" onClick={onClearReference} type="button">
+                  <X size={14} />
+                </button>
+              ) : null}
+            </figure>
+          ) : null}
           <button className="reference-upload" disabled type="button">
             <Plus size={16} />
             <span>添加参考图片</span>
@@ -424,14 +446,21 @@ export function GenerationPage({
               </div>
             ) : assetIds[0] ? (
               <Suspense fallback={null}>
-                <ImageEditor key={assetIds[0]} src={assetContentPath(projectId, assetIds[0])} />
+                <ImageEditor key={`${projectId}:${assetIds[0]}`} projectId={projectId} src={assetContentPath(projectId, assetIds[0])} onResult={result => {
+                  if (result.kind !== generationType) setGenerationType(result.kind);
+                  setTask(result);
+                  setPending(!["succeeded", "failed", "canceled"].includes(result.status));
+                  setAwaitingResult(!["succeeded", "canceled"].includes(result.status));
+                  setSelectedAssetId(result.output_asset_ids[0] ?? null);
+                  setHistory(current => [result, ...current.filter(item => item.id !== result.id)]);
+                }} />
               </Suspense>
             ) : (
               <>
                 <div className="preview-frame">
-                  <FluxoraMark width={53} height={53} />
+                  <LumiMark width={53} height={53} />
                 </div>
-                <h2>让灵感，在这里成像</h2>
+                <h2>和 {brand.name} 一起开始创作</h2>
                 <p>
                   在左侧写下你的想法，
                   <br />
@@ -469,5 +498,26 @@ export function GenerationPage({
       </div>
     </main>
   );
+}
+
+function ReferencePreview({ asset }: { asset: ReferenceAsset }) {
+  const [broken, setBroken] = useState(false);
+  if (broken || asset.category === "file") {
+    return <span className="reference-file">文件</span>;
+  }
+  if (asset.category === "video") {
+    return <video muted onError={() => setBroken(true)} playsInline preload="metadata" src={asset.url} />;
+  }
+  return <img alt="" onError={() => setBroken(true)} src={asset.url} />;
+}
+
+function referenceNote(category: ReferenceAsset["category"]): string {
+  if (category === "video") {
+    return "已带入参考区。当前生成按文字描述提交，不会把视频发给模型。";
+  }
+  if (category === "image") {
+    return "已带入参考区。当前生成按文字描述提交，不会把图片发给模型。";
+  }
+  return "已带入参考区。当前生成按文字描述提交。";
 }
 
